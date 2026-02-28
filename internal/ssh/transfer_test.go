@@ -158,3 +158,29 @@ func TestHasRemoteArg(t *testing.T) {
 		}
 	}
 }
+
+func TestExpandBatchRemote(t *testing.T) {
+	h := HostTarget{Name: "web1", Address: "10.0.0.1", TargetUser: "root"}
+
+	tests := []struct {
+		args []string
+		want []string
+	}{
+		{[]string{"file.txt", ":/tmp/"}, []string{"file.txt", "10.0.0.1:/tmp/"}},
+		{[]string{"-r", "./dir", ":/opt/app/"}, []string{"-r", "./dir", "10.0.0.1:/opt/app/"}},
+		{[]string{"file.txt", "./local"}, []string{"file.txt", "./local"}},
+		{[]string{":/etc/hosts", "./"}, []string{"10.0.0.1:/etc/hosts", "./"}},
+	}
+
+	for _, tt := range tests {
+		got := ExpandBatchRemote(tt.args, h)
+		if len(got) != len(tt.want) {
+			t.Fatalf("ExpandBatchRemote(%v) length = %d, want %d", tt.args, len(got), len(tt.want))
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("ExpandBatchRemote(%v)[%d] = %q, want %q", tt.args, i, got[i], tt.want[i])
+			}
+		}
+	}
+}

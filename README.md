@@ -337,6 +337,8 @@ host:/path  →  corp@target@host@psmp:/path
 | `--key-format <format>` | Formato chiave: `openssh` (default) o `pem` |
 | `--force-login` | Forza ri-autenticazione |
 | `--dry-run` | Mostra il comando scp senza eseguirlo |
+| `--tag <tag>` | Invia a tutti gli host con questo tag (AND) |
+| `--any-tag <t1,t2>` | Invia a tutti gli host con almeno un tag (OR) |
 
 **Esempi:**
 
@@ -364,6 +366,15 @@ sogark scp --dry-run file.txt 10.1.2.3:/tmp/
 
 # Forza ri-autenticazione
 sogark scp --force-login -r ./mydir 10.1.2.3:/opt/
+
+# Batch: upload a tutti gli host con tag "webservers"
+sogark scp --tag webservers file.txt :/tmp/
+
+# Batch: upload directory a tag multipli
+sogark scp --any-tag web,app -r ./deploy :/opt/app/
+
+# Batch: dry run per vedere i comandi
+sogark scp --dry-run --tag production installer.sh :/tmp/
 ```
 
 **Nota:** SCP è ufficialmente supportato attraverso CyberArk PSMP. Usa lo stesso formato username e la stessa chiave SSH della connessione SSH.

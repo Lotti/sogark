@@ -113,6 +113,105 @@ func HasRemoteArg(args []string) bool {
 	return false
 }
 
+// BatchScpArgs holds parameters for batch SCP to multiple hosts.
+type BatchScpArgs struct {
+	Username   string
+	ProxyHost  string
+	KeyPath    string
+	ScpArgs    []string // scp flags + local files + ":remotepath"
+	Hosts      []HostTarget
+	Parallel   int // max concurrent transfers (0 = sequential)
+}
+
+// RunBatchScp runs SCP to each host, reporting results per host.
+// Remote args using ":/path" (no host) are expanded for each target.
+func RunBatchScp(args *BatchScpArgs) error {
+	if len(args.Hosts) == 0 {
+		return fmt.Errorf("nessun host specificato")
+	}
+
+	parallel := args.Parallel
+	if parallel <= 0 {
+		parallel = 1
+	}
+
+	type result struct {
+		name   string
+		output string
+		err    error
+	}
+
+	sem := make(chan struct{}, parallel)
+	results := make(chan result, len(args.Hosts))
+
+	for _, h := range args.Hosts {
+		sem <- struct{}{}
+		go func(h HostTarget) {
+			defer func() { <-sem }()
+
+			// Expand ":/path" args with this host's address
+			expanded := ExpandBatchRemote(args.ScpArgs, h)
+
+			scpArgs := &ScpArgs{
+				Username:   args.Username,
+				TargetUser: h.TargetUser,
+				ProxyHost:  args.ProxyHost,
+				KeyPath:    args.KeyPath,
+				ScpArgs:    expanded,
+			}
+
+			cmdLine := scpArgs.CommandLine()
+			cmdName := cmdLine[0]
+			if runtime.GOOS == "windows" {
+				if scpExe, err := exec.LookPath("scp.exe"); err == nil {
+					cmdName = scpExe
+				}
+			}
+
+			cmd := exec.Command(cmdName, cmdLine[1:]...)
+			out, err := cmd.CombinedOutput()
+			results <- result{name: h.Name, output: string(out), err: err}
+		}(h)
+	}
+
+	succeeded := 0
+	failed := 0
+	for range args.Hosts {
+		r := <-results
+		if r.err != nil {
+			fmt.Printf("[%s] ERRORE: %s", r.name, r.output)
+			fmt.Fprintf(os.Stderr, "[%s] %v\n", r.name, r.err)
+			failed++
+		} else {
+			fmt.Printf("[%s] OK\n", r.name)
+			succeeded++
+		}
+	}
+
+	total := len(args.Hosts)
+	if failed > 0 {
+		fmt.Printf("[!] SCP: %d/%d completati, %d falliti\n", succeeded, total, failed)
+	} else {
+		fmt.Printf("[+] SCP: %d/%d completati\n", succeeded, total)
+	}
+	return nil
+}
+
+// ExpandBatchRemote replaces ":/path" (bare colon prefix, no host) with
+// "[user@]host:/path" using the given HostTarget.
+func ExpandBatchRemote(args []string, h HostTarget) []string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		if strings.HasPrefix(a, ":") {
+			// Bare remote path → attach host
+			out[i] = h.Address + a
+		} else {
+			out[i] = a
+		}
+	}
+	return out
+}
+
 // scpNeedsLegacyFlag detects if the local scp uses SFTP by default (OpenSSH >= 9.0)
 // and returns true if -O is needed to force legacy SCP protocol.
 func scpNeedsLegacyFlag() bool {
