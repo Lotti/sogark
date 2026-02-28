@@ -21,6 +21,7 @@ func newHostsCmd() *cobra.Command {
 		newHostsListCmd(),
 		newHostsRemoveCmd(),
 		newHostsTagCmd(),
+		newHostsImportMobaCmd(),
 	)
 
 	return cmd
@@ -250,4 +251,80 @@ func keyFilePaths(keyDir, baseName string) (openssh, ppk, pem string) {
 	ppk = filepath.Join(keyDir, baseName+".ppk")
 	pem = filepath.Join(keyDir, baseName+".pem")
 	return
+}
+
+func newHostsImportMobaCmd() *cobra.Command {
+	var (
+		extraTag string
+		dryRun   bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "import-moba <file.mxtsessions>",
+		Short: "Importa sessioni SSH da un export MobaXterm",
+		Long: `Legge un file .mxtsessions esportato da MobaXterm e importa le sessioni SSH
+nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
+		Example: `  sogark hosts import-moba sessions.mxtsessions
+  sogark hosts import-moba --tag production sessions.mxtsessions
+  sogark hosts import-moba --dry-run sessions.mxtsessions`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sessions, err := hosts.ParseMobaFile(args[0])
+			if err != nil {
+				return err
+			}
+
+			if len(sessions) == 0 {
+				fmt.Println("[i] Nessuna sessione SSH trovata nel file.")
+				return nil
+			}
+
+			if dryRun {
+				fmt.Printf("[i] Anteprima: %d sessioni SSH trovate\n", len(sessions))
+				for _, s := range sessions {
+					tags := s.Tags
+					if extraTag != "" {
+						tags = append(tags, extraTag)
+					}
+					tagStr := ""
+					if len(tags) > 0 {
+						tagStr = " [" + strings.Join(tags, ", ") + "]"
+					}
+					user := s.User
+					if user == "" {
+						user = "(default)"
+					}
+					fmt.Printf("    %-20s %s (user: %s)%s\n", s.Name, s.Address, user, tagStr)
+				}
+				return nil
+			}
+
+			reg, _, err := loadRegistry()
+			if err != nil {
+				return err
+			}
+
+			imported := 0
+			for _, s := range sessions {
+				tags := s.Tags
+				if extraTag != "" {
+					tags = append(tags, extraTag)
+				}
+				reg.Add(s.Name, s.Address, s.User, tags)
+				imported++
+			}
+
+			if err := reg.Save(); err != nil {
+				return fmt.Errorf("errore salvataggio registro: %w", err)
+			}
+
+			fmt.Printf("[+] Importati %d host da MobaXterm\n", imported)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&extraTag, "tag", "", "tag aggiuntivo da applicare a tutti gli host importati")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra anteprima senza importare")
+
+	return cmd
 }

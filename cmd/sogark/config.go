@@ -147,8 +147,9 @@ Se il file esiste già, stampa le istruzioni per la configurazione manuale.`,
 				fmt.Printf("[i] Il file %s esiste già.\n", luaPath)
 				fmt.Println("    Aggiungi manualmente queste righe alla tua configurazione:")
 				fmt.Println()
-				fmt.Println("  -- Rendering software per VM con GPU limitata")
-				fmt.Println("  front_end = \"Software\",")
+				fmt.Println("  -- Rendering per VM (se OpenGL non funziona)")
+				fmt.Println("  prefer_egl = true,")
+				fmt.Println("  -- oppure: front_end = \"Software\",")
 				fmt.Println()
 				fmt.Println("  -- Clipboard")
 				fmt.Println("  keys = {")
@@ -171,8 +172,9 @@ Se il file esiste già, stampa le istruzioni per la configurazione manuale.`,
 func weztermLuaConfig() string {
 	return `local wezterm = require 'wezterm'
 return {
-  -- Rendering software per VM con GPU limitata
-  front_end = "Software",
+  -- Rendering per VM con GPU limitata
+  -- prefer_egl usa DirectX/ANGLE (più veloce), se non funziona usa front_end = "Software"
+  prefer_egl = true,
 
   -- Clipboard (Ctrl+Shift+C / Ctrl+Shift+V)
   keys = {

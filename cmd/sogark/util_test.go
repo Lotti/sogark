@@ -97,7 +97,7 @@ func TestWeztermLuaConfig(t *testing.T) {
 	lua := weztermLuaConfig()
 
 	checks := []string{
-		`front_end = "Software"`,
+		`prefer_egl = true`,
 		`wezterm.action.CopyTo('Clipboard')`,
 		`wezterm.action.PasteFrom('Clipboard')`,
 		`local wezterm = require 'wezterm'`,
