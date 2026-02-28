@@ -379,12 +379,8 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string) 
 		return fmt.Errorf("nessun host specificato")
 	}
 
-	mobaExe := mobaPath
-	if mobaExe == "" {
-		mobaExe = findMobaXterm()
-	}
-	if mobaExe == "" {
-		return fmt.Errorf("MobaXterm non trovato. Usa --moba-path per specificare il percorso")
+	if mobaPath == "" {
+		return fmt.Errorf("MobaXterm non trovato")
 	}
 
 	fmt.Printf("[+] Apertura MobaXterm con %d tab...\n", len(hosts))
@@ -393,7 +389,7 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string) 
 			keyPath, username, h.TargetUser, h.Address, proxyHost)
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 
-		cmd := exec.Command(mobaExe, "-newtab", sshCmd)
+		cmd := exec.Command(mobaPath, "-newtab", sshCmd)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
@@ -402,6 +398,11 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string) 
 
 	fmt.Println("\n[i] Per attivare MultiExec: click destro su un tab → Multi-execution")
 	return nil
+}
+
+// FindMobaXterm searches for MobaXterm in common locations.
+func FindMobaXterm() string {
+	return findMobaXterm()
 }
 
 // findMobaXterm searches for MobaXterm in common locations.

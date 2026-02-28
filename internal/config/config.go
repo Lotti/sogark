@@ -34,6 +34,7 @@ var ValidKeys = []string{
 	"username", "pvwa_base_url", "idp_url", "proxy_host",
 	"key_dir", "key_formats", "default_target_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
+	"moba_path",
 }
 
 type Config struct {
@@ -47,6 +48,7 @@ type Config struct {
 	SSHKeyName         string   `yaml:"ssh_key_name"`
 	KeyTTLHours        int      `yaml:"key_ttl_hours"`
 	SAMLTimeoutMinutes int      `yaml:"saml_timeout_minutes"`
+	MobaPath           string   `yaml:"moba_path,omitempty"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -164,6 +166,8 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("saml_timeout_minutes deve essere un numero intero positivo")
 		}
 		c.SAMLTimeoutMinutes = n
+	case "moba_path":
+		c.MobaPath = value
 	default:
 		return fmt.Errorf("chiave sconosciuta: %q\nChiavi valide: %s", key, strings.Join(ValidKeys, ", "))
 	}
@@ -189,7 +193,7 @@ func (c *Config) Show() string {
 		idpDisplay = idpDisplay[:57] + "..."
 	}
 
-	return fmt.Sprintf(`username:              %s
+	result := fmt.Sprintf(`username:              %s
 pvwa_base_url:         %s
 idp_url:               %s
 proxy_host:            %s
@@ -210,6 +214,10 @@ saml_timeout_minutes:  %d`,
 		c.KeyTTLHours,
 		c.SAMLTimeoutMinutes,
 	)
+	if c.MobaPath != "" {
+		result += fmt.Sprintf("\nmoba_path:             %s", c.MobaPath)
+	}
+	return result
 }
 
 func splitAndTrim(s string) []string {

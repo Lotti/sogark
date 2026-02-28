@@ -57,6 +57,7 @@ func TestSet_ValidKeys(t *testing.T) {
 		{"default_target_user", "admin", func() bool { return cfg.DefaultTargetUser == "admin" }},
 		{"ssh_key_name", "my_key", func() bool { return cfg.SSHKeyName == "my_key" }},
 		{"key_ttl_hours", "8", func() bool { return cfg.KeyTTLHours == 8 }},
+		{"moba_path", `C:\Tools\MobaXterm.exe`, func() bool { return cfg.MobaPath == `C:\Tools\MobaXterm.exe` }},
 	}
 
 	for _, tt := range tests {
@@ -198,6 +199,47 @@ func TestShow_LongIDPURLTruncated(t *testing.T) {
 	// DefaultIDPURL is >60 chars, so it should be truncated with "..."
 	if !strings.Contains(output, "...") {
 		t.Error("Show() should truncate long IDP URLs")
+	}
+}
+
+func TestShow_MobaPath(t *testing.T) {
+	cfg := Defaults()
+	// Without moba_path, it should not appear
+	output := cfg.Show()
+	if strings.Contains(output, "moba_path") {
+		t.Error("Show() should not include moba_path when empty")
+	}
+	// With moba_path, it should appear
+	cfg.MobaPath = `C:\Tools\MobaXterm.exe`
+	output = cfg.Show()
+	if !strings.Contains(output, `C:\Tools\MobaXterm.exe`) {
+		t.Error("Show() should include moba_path when set")
+	}
+	if !strings.Contains(output, "moba_path") {
+		t.Error("Show() should include moba_path label")
+	}
+}
+
+func TestSaveAndLoad_MobaPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	cfg := Defaults()
+	cfg.Username = "test"
+	cfg.MobaPath = `C:\MobaXterm.exe`
+	cfg.KeyDir = filepath.Join(tmpDir, DirName, KeysDirName)
+
+	if err := cfg.Save(); err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if loaded.MobaPath != `C:\MobaXterm.exe` {
+		t.Errorf("MobaPath: got %q, want %q", loaded.MobaPath, `C:\MobaXterm.exe`)
 	}
 }
 

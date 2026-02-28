@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/sogei/cyberark-cli/internal/config"
@@ -20,6 +21,7 @@ func newConfigCmd() *cobra.Command {
 		newConfigInitCmd(),
 		newConfigSetCmd(),
 		newConfigShowCmd(),
+		newConfigWezTermCmd(),
 	)
 
 	return cmd
@@ -125,4 +127,58 @@ func splitCSV(s string) []string {
 		}
 	}
 	return result
+}
+
+func newConfigWezTermCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "wezterm",
+		Short: "Genera il file di configurazione WezTerm per VM",
+		Long: `Genera ~/.wezterm.lua con rendering software (per VM con GPU limitata)
+e supporto clipboard (Ctrl+Shift+C/V).
+Se il file esiste già, stampa le istruzioni per la configurazione manuale.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return fmt.Errorf("impossibile determinare la home directory: %w", err)
+			}
+			luaPath := filepath.Join(home, ".wezterm.lua")
+
+			if _, err := os.Stat(luaPath); err == nil {
+				fmt.Printf("[i] Il file %s esiste già.\n", luaPath)
+				fmt.Println("    Aggiungi manualmente queste righe alla tua configurazione:")
+				fmt.Println()
+				fmt.Println("  -- Rendering software per VM con GPU limitata")
+				fmt.Println("  front_end = \"Software\",")
+				fmt.Println()
+				fmt.Println("  -- Clipboard")
+				fmt.Println("  keys = {")
+				fmt.Println("    { key = 'c', mods = 'CTRL|SHIFT', action = wezterm.action.CopyTo('Clipboard') },")
+				fmt.Println("    { key = 'v', mods = 'CTRL|SHIFT', action = wezterm.action.PasteFrom('Clipboard') },")
+				fmt.Println("  },")
+				return nil
+			}
+
+			if err := os.WriteFile(luaPath, []byte(weztermLuaConfig()), 0644); err != nil {
+				return fmt.Errorf("errore scrittura %s: %w", luaPath, err)
+			}
+			fmt.Printf("[+] Configurazione WezTerm salvata in %s\n", luaPath)
+			fmt.Println("    Rendering software + clipboard abilitati.")
+			return nil
+		},
+	}
+}
+
+func weztermLuaConfig() string {
+	return `local wezterm = require 'wezterm'
+return {
+  -- Rendering software per VM con GPU limitata
+  front_end = "Software",
+
+  -- Clipboard (Ctrl+Shift+C / Ctrl+Shift+V)
+  keys = {
+    { key = 'c', mods = 'CTRL|SHIFT', action = wezterm.action.CopyTo('Clipboard') },
+    { key = 'v', mods = 'CTRL|SHIFT', action = wezterm.action.PasteFrom('Clipboard') },
+  },
+}
+`
 }

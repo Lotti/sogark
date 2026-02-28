@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -71,7 +73,10 @@ Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
 				}
 			}
 
-			return sshpkg.RunMoba(targets, cfg.Username, cfg.ProxyHost, keyPath, mobaPath)
+			// Resolve MobaXterm path: flag > config > auto-detect > prompt
+			mobaExe := resolveMobaPath(mobaPath, cfg)
+
+			return sshpkg.RunMoba(targets, cfg.Username, cfg.ProxyHost, keyPath, mobaExe)
 		},
 	}
 
@@ -80,4 +85,44 @@ Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
 	cmd.Flags().StringVar(&mobaPath, "moba-path", "", "percorso MobaXterm.exe")
 
 	return cmd
+}
+
+// resolveMobaPath resolves the MobaXterm executable path.
+// Priority: flag > config > auto-detect > interactive prompt (saves to config).
+func resolveMobaPath(flagPath string, cfg *config.Config) string {
+	if flagPath != "" {
+		return flagPath
+	}
+	if cfg.MobaPath != "" {
+		return cfg.MobaPath
+	}
+	if found := sshpkg.FindMobaXterm(); found != "" {
+		return found
+	}
+
+	// Interactive prompt
+	fmt.Println("[!] MobaXterm non trovato.")
+	fmt.Print("    Inserisci il percorso di MobaXterm.exe: ")
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return ""
+	}
+
+	// Validate the path exists
+	if _, err := os.Stat(input); err != nil {
+		fmt.Fprintf(os.Stderr, "[!] File non trovato: %s\n", input)
+		return ""
+	}
+
+	// Save to config for future runs
+	cfg.MobaPath = input
+	if err := cfg.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "[!] Errore salvataggio config: %v\n", err)
+	} else {
+		fmt.Printf("[+] Percorso salvato nella configurazione: %s\n", input)
+	}
+
+	return input
 }

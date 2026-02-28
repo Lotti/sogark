@@ -92,3 +92,19 @@ func TestKeyFilePaths(t *testing.T) {
 		t.Errorf("pem = %q, want %q", pem, wantPem)
 	}
 }
+
+func TestWeztermLuaConfig(t *testing.T) {
+	lua := weztermLuaConfig()
+
+	checks := []string{
+		`front_end = "Software"`,
+		`wezterm.action.CopyTo('Clipboard')`,
+		`wezterm.action.PasteFrom('Clipboard')`,
+		`local wezterm = require 'wezterm'`,
+	}
+	for _, c := range checks {
+		if !strings.Contains(lua, c) {
+			t.Errorf("weztermLuaConfig() missing %q", c)
+		}
+	}
+}
