@@ -24,14 +24,15 @@ func newMultiCmd() *cobra.Command {
 		Use:   "multi [host...]",
 		Short: "Sessioni SSH parallele con pane sincronizzati",
 		Long: `Apre una sessione multi-pane con un pane per ogni host.
-Backend auto-detect: Windows Terminal (wt) su Windows, tmux su macOS/Linux.
-Nota: l'input sincronizzato è supportato solo con tmux.
+Backend auto-detect: WezTerm (con input sync) > Windows Terminal > tmux.
+Se eseguito dentro WezTerm, usa il backend wezterm con broadcast automatico.
 Usa --backend per forzare un backend specifico.`,
 		Example: `  sogark multi --tag production
   sogark multi #production
   sogark multi oper1@#web#prod
   sogark multi web1 web2 db1
   sogark multi --any-tag web,db
+  sogark multi --backend wezterm #production
   sogark multi --tag prod --no-sync`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
@@ -86,7 +87,7 @@ Usa --backend per forzare un backend specifico.`,
 	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
 	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
 	cmd.Flags().BoolVar(&noSync, "no-sync", false, "non sincronizzare l'input tra i pane (solo tmux)")
-	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wt, tmux")
+	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wezterm, wt, tmux")
 
 	return cmd
 }

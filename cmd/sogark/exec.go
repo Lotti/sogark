@@ -19,10 +19,10 @@ func newExecCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "exec [host...] <command>",
-		Short: "Esecuzione di un comando su più host via tmux",
-		Long: `Apre sessioni SSH interattive via tmux, sincronizza i pane e digita
-il comando automaticamente. Resta attaccato per vedere l'output.
-Richiede tmux (CyberArk PSMP richiede sessioni interattive).`,
+		Short: "Esecuzione di un comando su più host via tmux/WezTerm",
+		Long: `Apre sessioni SSH interattive, sincronizza i pane e digita
+il comando automaticamente. Resta attaccato per comandi successivi.
+Richiede tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).`,
 		Example: `  sogark exec --tag webservers "uptime"
   sogark exec #webservers "uptime"
   sogark exec oper1@#web#prod "systemctl status nginx"

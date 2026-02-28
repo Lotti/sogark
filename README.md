@@ -490,20 +490,23 @@ Rimuove anche l'entry corrispondente da `~/.ssh/config` e la sessione PuTTY (su 
 
 ### sogark multi
 
-Apre una sessione multi-pane con un pannello SSH per ogni host selezionato. Auto-detect del backend: Windows Terminal su Windows, tmux su macOS/Linux.
+Apre una sessione multi-pane con un pannello SSH per ogni host selezionato.
 
 ```bash
-sogark multi [host...] [--tag tag] [--any-tag tag] [--backend wt|tmux] [--no-sync]
+sogark multi [host...] [--tag tag] [--any-tag tag] [--backend auto|wezterm|wt|tmux] [--no-sync]
 ```
 
 **Backend supportati:**
-- **Windows Terminal** (`wt`) — auto-detect su Windows se `wt.exe` è disponibile
-- **tmux** — default su macOS/Linux (`brew install tmux` / `apt install tmux`)
+- **WezTerm** (`wezterm`) — auto-detect se eseguito dentro WezTerm. **Supporta input sincronizzato** via broadcast (digiti comandi nel pane di controllo, vengono inviati a tutti i pane SSH)
+- **Windows Terminal** (`wt`) — fallback su Windows, split pane senza sync
+- **tmux** — default su macOS/Linux con `synchronize-panes`
+
+**Auto-detect:** dentro WezTerm → `wezterm`, altrimenti `wt` (Windows) o `tmux` (Unix).
 
 **Esempi:**
 
 ```bash
-# Con sintassi #tag
+# Con sintassi #tag (auto-detect backend)
 sogark multi #production
 sogark multi oper1@#web#prod
 
@@ -514,10 +517,10 @@ sogark multi --tag production
 sogark multi web1 web2 db1
 
 # Forza backend specifico
-sogark multi --backend wt #production
+sogark multi --backend wezterm #production
 sogark multi --backend tmux #production
 
-# Senza sincronizzazione input (solo tmux)
+# Senza sincronizzazione input
 sogark multi --tag production --no-sync
 ```
 
@@ -527,16 +530,37 @@ sogark multi --tag production --no-sync
 |------|-------------|
 | `--tag <tag>` | Seleziona host per tag (AND) |
 | `--any-tag <tag>` | Seleziona host per tag (OR) |
-| `--backend <b>` | Backend: `auto` (default), `wt`, `tmux` |
-| `--no-sync` | Disabilita `synchronize-panes` (solo tmux) |
+| `--backend <b>` | Backend: `auto` (default), `wezterm`, `wt`, `tmux` |
+| `--no-sync` | Disabilita input sincronizzato |
+
+**WezTerm broadcast mode:**
+Quando usi il backend `wezterm`, il pane originale diventa un controller:
+```
+[+] WezTerm: 3 pane SSH aperti
+    [pane 1] web1 (root@10.0.0.1)
+    [pane 2] web2 (root@10.0.0.2)
+    [pane 3] db1 (root@10.0.0.3)
+[+] Broadcast attivo. Digita comandi (Ctrl+D per uscire):
+
+[sogark] > uptime
+[sogark] > df -h /
+[sogark] > ^D
+[+] Broadcast terminato. I pane SSH restano attivi.
+```
+
+**Tip WezTerm su Windows corporate:** se hai l'errore OpenGL, crea `~/.wezterm.lua`:
+```lua
+local wezterm = require 'wezterm'
+return { front_end = "Software" }
+```
 
 ---
 
 ### sogark exec
 
-Esecuzione di un comando su più host via tmux. Apre sessioni SSH interattive, sincronizza i pane e digita automaticamente il comando. Resta attaccato per vedere l'output.
+Esecuzione di un comando su più host. Apre sessioni SSH interattive, invia il comando a tutti i pane e resta attivo per comandi successivi.
 
-**Richiede:** `tmux` (CyberArk PSMP richiede sessioni interattive, non supporta esecuzione batch).
+**Richiede:** tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).
 
 ```bash
 sogark exec [host...] <comando>
@@ -557,7 +581,7 @@ sogark exec --tag webservers "uptime"
 sogark exec web1 web2 db1 "cat /etc/hostname"
 ```
 
-Il comando apre tmux con pane sincronizzati, digita il comando e si attacca alla sessione. Per uscire: `Ctrl+B` poi `:kill-session`.
+Su WezTerm: dopo il comando iniziale, entra in broadcast mode per comandi successivi. Su tmux: digita il comando e si attacca alla sessione (`Ctrl+B` poi `:kill-session` per uscire).
 
 **Flag:**
 
