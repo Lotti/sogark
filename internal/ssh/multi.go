@@ -384,15 +384,22 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string) 
 	}
 
 	fmt.Printf("[+] Apertura MobaXterm con %d tab...\n", len(hosts))
-	for _, h := range hosts {
+	for i, h := range hosts {
+		// MobaXterm's embedded SSH interprets backslashes as escape chars,
+		// so convert Windows paths to forward slashes
+		mobaKeyPath := strings.ReplaceAll(keyPath, "\\", "/")
 		sshCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes %s@%s@%s@%s",
-			keyPath, username, h.TargetUser, h.Address, proxyHost)
+			mobaKeyPath, username, h.TargetUser, h.Address, proxyHost)
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 
 		cmd := exec.Command(mobaPath, "-newtab", sshCmd)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
+		}
+		// MobaXterm needs time between tab launches
+		if i < len(hosts)-1 {
+			time.Sleep(2 * time.Second)
 		}
 	}
 
