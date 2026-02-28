@@ -4,14 +4,16 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
-// MultiArgs holds parameters for a tmux multi-session.
+// MultiArgs holds parameters for a multi-pane session.
 type MultiArgs struct {
 	SessionName string
 	Hosts       []HostTarget
 	Sync        bool
+	Backend     string // "auto", "tmux", "wt" (Windows Terminal)
 }
 
 // HostTarget represents a single host for multi/exec commands.
@@ -21,16 +23,49 @@ type HostTarget struct {
 	TargetUser string
 }
 
-// RunMulti opens a tmux session with synchronized panes for each host.
+// RunMulti opens a multi-pane session using the best available backend.
 func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
+	if len(args.Hosts) == 0 {
+		return fmt.Errorf("nessun host specificato")
+	}
+
+	backend := args.Backend
+	if backend == "" || backend == "auto" {
+		backend = detectMultiBackend()
+	}
+
+	switch backend {
+	case "wt":
+		return runMultiWT(args, username, proxyHost, keyPath)
+	case "tmux":
+		return runMultiTmux(args, username, proxyHost, keyPath)
+	default:
+		return fmt.Errorf("backend %q non supportato (usa 'wt' o 'tmux')", backend)
+	}
+}
+
+// detectMultiBackend selects the best available multi-pane backend.
+func detectMultiBackend() string {
+	if runtime.GOOS == "windows" {
+		if _, err := exec.LookPath("wt.exe"); err == nil {
+			return "wt"
+		}
+	}
+	if _, err := exec.LookPath("tmux"); err == nil {
+		return "tmux"
+	}
+	if _, err := exec.LookPath("wt.exe"); err == nil {
+		return "wt"
+	}
+	return "tmux" // will fail with helpful message
+}
+
+// runMultiTmux opens a tmux session with synchronized panes for each host.
+func runMultiTmux(args *MultiArgs, username, proxyHost, keyPath string) error {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		return fmt.Errorf("tmux non trovato. Installalo con:\n" +
 			"  macOS:  brew install tmux\n" +
 			"  Linux:  sudo apt install tmux")
-	}
-
-	if len(args.Hosts) == 0 {
-		return fmt.Errorf("nessun host specificato")
 	}
 
 	sessionName := args.SessionName
@@ -76,6 +111,53 @@ func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 func buildSSHCmd(username, targetUser, host, proxyHost, keyPath string) string {
 	user := fmt.Sprintf("%s@%s@%s@%s", username, targetUser, host, proxyHost)
 	return fmt.Sprintf("ssh %s -i %s -o IdentitiesOnly=yes", user, keyPath)
+}
+
+// buildSogarkSSHArgs returns the sogark ssh command args for a host.
+func buildSogarkSSHArgs(targetUser, host string) []string {
+	target := targetUser + "@" + host
+	return []string{"sogark", "ssh", target}
+}
+
+// runMultiWT opens Windows Terminal split panes for each host.
+// Each pane runs "sogark ssh user@host" so it inherits key/config.
+func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
+	wtExe, err := exec.LookPath("wt.exe")
+	if err != nil {
+		return fmt.Errorf("wt.exe non trovato. Installa Windows Terminal dal Microsoft Store")
+	}
+
+	sogarkExe, _ := os.Executable()
+
+	// Build wt command with chained split-pane commands.
+	// wt [new-tab cmd] ; sp -V cmd ; sp -H cmd ; ...
+	// First host opens in the initial tab.
+	first := args.Hosts[0]
+	wtArgs := []string{
+		"new-tab", "--title", first.Name, "--",
+		sogarkExe, "ssh", first.TargetUser + "@" + first.Address,
+	}
+
+	// Remaining hosts as split panes, alternating vertical/horizontal
+	for i, h := range args.Hosts[1:] {
+		splitDir := "-V" // vertical split (side by side)
+		if i%2 == 1 {
+			splitDir = "-H" // horizontal split (top/bottom)
+		}
+		wtArgs = append(wtArgs, ";", "sp", splitDir, "--title", h.Name, "--",
+			sogarkExe, "ssh", h.TargetUser+"@"+h.Address)
+	}
+
+	fmt.Printf("[+] Apertura Windows Terminal con %d pane...\n", len(args.Hosts))
+	for _, h := range args.Hosts {
+		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
+	}
+
+	cmd := exec.Command(wtExe, wtArgs...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // RunExec executes a command on multiple hosts in parallel and collects output.

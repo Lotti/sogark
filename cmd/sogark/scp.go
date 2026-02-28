@@ -32,7 +32,14 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 		Example: `  # Upload file
   sogark scp file.txt 10.1.2.3:/tmp/
 
-  # Upload a tutti gli host con tag
+  # Upload con tag inline
+  sogark scp file.txt #webservers:/tmp/
+  sogark scp file.txt oper1@#web#prod:/tmp/
+
+  # Download con tag inline (crea sottocartelle per host)
+  sogark scp #webservers:/etc/hosts ./configs/
+
+  # Upload a tutti gli host con flag --tag
   sogark scp --tag webservers file.txt :/tmp/
 
   # Upload directory a tag multipli (OR)
@@ -46,9 +53,6 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 
   # Con utente target specifico
   sogark scp file.txt admin@10.1.2.3:/tmp/
-
-  # Usa host registrato
-  sogark scp file.txt myserver:/tmp/
 
   # Con flag scp nativi (compressione, verbose, porta)
   sogark scp -C -v -P 2222 file.txt 10.1.2.3:/tmp/
@@ -100,13 +104,20 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 			}
 			keyPath := filepath.Join(keyDir, keyName)
 
-			// Batch mode: --tag or --any-tag
+			// Detect #tag syntax in remote path args
+			if sf.tag == "" && sf.anyTag == "" {
+				sf.passArgs, sf.tag, sf.user, sf.downloadDir = extractScpTagArgs(sf.passArgs, sf.user)
+				if sf.user != "" {
+					targetUser = sf.user
+				}
+			}
+
+			// Batch mode: --tag, --any-tag, or #tag syntax
 			if sf.tag != "" || sf.anyTag != "" {
 				targets, err := resolveTargets(cfg, nil, sf.tag, sf.anyTag)
 				if err != nil {
 					return err
 				}
-				// Override target user if -u was specified
 				if sf.user != "" {
 					for i := range targets {
 						targets[i].TargetUser = sf.user
@@ -114,22 +125,31 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 				}
 
 				batchArgs := &sshpkg.BatchScpArgs{
-					Username: cfg.Username,
-					ProxyHost: cfg.ProxyHost,
-					KeyPath:  keyPath,
-					ScpArgs:  sf.passArgs,
-					Hosts:    targets,
-					Parallel: 3,
+					Username:    cfg.Username,
+					ProxyHost:   cfg.ProxyHost,
+					KeyPath:     keyPath,
+					ScpArgs:     sf.passArgs,
+					Hosts:       targets,
+					Parallel:    3,
+					DownloadDir: sf.downloadDir,
 				}
 
 				if sf.dryRun {
 					for _, h := range targets {
 						expanded := sshpkg.ExpandBatchRemote(sf.passArgs, h)
+						localDir := sf.downloadDir
+						if localDir != "" {
+							localDir = filepath.Join(localDir, h.Name)
+						}
 						scpA := &sshpkg.ScpArgs{
 							Username: cfg.Username, TargetUser: h.TargetUser,
 							ProxyHost: cfg.ProxyHost, KeyPath: keyPath, ScpArgs: expanded,
 						}
-						fmt.Printf("[%s] > %s\n", h.Name, scpA.CommandString())
+						cmdStr := scpA.CommandString()
+						if localDir != "" {
+							cmdStr += " → " + localDir
+						}
+						fmt.Printf("[%s] > %s\n", h.Name, cmdStr)
 					}
 					return nil
 				}
@@ -166,13 +186,14 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 
 // scpFlags holds parsed sogark-specific flags for the scp command.
 type scpFlags struct {
-	user       string
-	keyFormat  string
-	tag        string
-	anyTag     string
-	forceLogin bool
-	dryRun     bool
-	passArgs   []string
+	user        string
+	keyFormat   string
+	tag         string
+	anyTag      string
+	forceLogin  bool
+	dryRun      bool
+	downloadDir string   // set when #tag download detected
+	passArgs    []string
 }
 
 // parseScpFlags separates sogark-specific flags from scp passthrough args.
@@ -274,4 +295,79 @@ func resolveScpArgs(args []string, reg *hosts.Registry, defaultTargetUser string
 		}
 	}
 	return resolved
+}
+
+// extractScpTagArgs scans scp args for #tag patterns in remote paths.
+// If found, extracts tags → sets tag string (comma-separated), rewrites the arg to ":/path",
+// and detects upload vs download for batch mode.
+// Returns modified args, tag string, user override, and downloadDir (non-empty for downloads).
+func extractScpTagArgs(args []string, existingUser string) (newArgs []string, tag, user, downloadDir string) {
+	newArgs = make([]string, len(args))
+	copy(newArgs, args)
+
+	for i, a := range args {
+		if strings.HasPrefix(a, "-") {
+			continue
+		}
+		host, path, isRemote := sshpkg.ParseRemotePath(a)
+		if !isRemote {
+			continue
+		}
+
+		// Extract user@ prefix if present
+		hostPart := host
+		userPart := ""
+		if idx := strings.Index(host, "@"); idx >= 0 {
+			userPart = host[:idx]
+			hostPart = host[idx+1:]
+		}
+
+		if !strings.HasPrefix(hostPart, "#") {
+			continue
+		}
+
+		// Parse tags from #tag1#tag2#tag3
+		tagParts := strings.Split(hostPart, "#")
+		var tags []string
+		for _, p := range tagParts {
+			if p != "" {
+				tags = append(tags, p)
+			}
+		}
+		if len(tags) == 0 {
+			continue
+		}
+
+		tag = strings.Join(tags, ",")
+		if userPart != "" && existingUser == "" {
+			user = userPart
+		}
+
+		// Rewrite arg to ":/path" for batch expansion
+		newArgs[i] = ":" + path
+
+		// Detect download: #tag arg is NOT the last non-flag arg
+		isLast := true
+		for j := i + 1; j < len(args); j++ {
+			if !strings.HasPrefix(args[j], "-") {
+				isLast = false
+				break
+			}
+		}
+		if !isLast {
+			// Upload: #tag is source, local is target — wait, this is wrong.
+			// In SCP, the LAST arg is always the target.
+			// If #tag is NOT the last non-flag arg, #tag is a SOURCE → download.
+			// Find the last non-flag arg as the local destination.
+			for j := len(args) - 1; j > i; j-- {
+				if !strings.HasPrefix(args[j], "-") {
+					downloadDir = args[j]
+					break
+				}
+			}
+		}
+
+		break // only process first #tag match
+	}
+	return
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/keys"
@@ -21,6 +22,8 @@ func newExecCmd() *cobra.Command {
 		Short: "Esecuzione parallela di un comando su più host",
 		Long:  `Esegue un comando su più host in parallelo e raccoglie l'output con prefisso [hostname].`,
 		Example: `  sogark exec --tag webservers "uptime"
+  sogark exec #webservers "uptime"
+  sogark exec oper1@#web#prod "systemctl status nginx"
   sogark exec web1 web2 "systemctl status nginx"
   sogark exec --any-tag web,db "cat /etc/hostname"`,
 		Args: cobra.MinimumNArgs(1),
@@ -30,24 +33,36 @@ func newExecCmd() *cobra.Command {
 				return err
 			}
 
-			// Last arg is the command; preceding args are host names (when no tag flag)
 			var hostArgs []string
 			var command string
+			tagOverride := tag
+			var userOverride string
 
 			if tag != "" || anyTag != "" {
-				// All args are the command
 				command = args[0]
-			} else {
-				if len(args) < 2 {
-					return fmt.Errorf("specifica almeno un host e un comando, oppure usa --tag")
+			} else if len(args) >= 2 {
+				// Check if first arg is a #tag selector
+				if u, tags, ok := parseTagArg(args[0]); ok {
+					tagOverride = strings.Join(tags, ",")
+					userOverride = u
+					command = args[1]
+				} else {
+					hostArgs = args[:len(args)-1]
+					command = args[len(args)-1]
 				}
-				hostArgs = args[:len(args)-1]
-				command = args[len(args)-1]
+			} else {
+				return fmt.Errorf("specifica almeno un host e un comando, oppure usa --tag")
 			}
 
-			targets, err := resolveTargets(cfg, hostArgs, tag, anyTag)
+			targets, err := resolveTargets(cfg, hostArgs, tagOverride, anyTag)
 			if err != nil {
 				return err
+			}
+
+			if userOverride != "" {
+				for i := range targets {
+					targets[i].TargetUser = userOverride
+				}
 			}
 
 			keyDir, _ := cfg.ResolveKeyDir()

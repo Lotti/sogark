@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -115,16 +116,18 @@ func HasRemoteArg(args []string) bool {
 
 // BatchScpArgs holds parameters for batch SCP to multiple hosts.
 type BatchScpArgs struct {
-	Username   string
-	ProxyHost  string
-	KeyPath    string
-	ScpArgs    []string // scp flags + local files + ":remotepath"
-	Hosts      []HostTarget
-	Parallel   int // max concurrent transfers (0 = sequential)
+	Username    string
+	ProxyHost   string
+	KeyPath     string
+	ScpArgs     []string // scp flags + local files + ":remotepath"
+	Hosts       []HostTarget
+	Parallel    int    // max concurrent transfers (0 = sequential)
+	DownloadDir string // if set, download mode: each host saves to DownloadDir/hostname/
 }
 
 // RunBatchScp runs SCP to each host, reporting results per host.
 // Remote args using ":/path" (no host) are expanded for each target.
+// If DownloadDir is set, creates per-host subdirectories for downloads.
 func RunBatchScp(args *BatchScpArgs) error {
 	if len(args.Hosts) == 0 {
 		return fmt.Errorf("nessun host specificato")
@@ -151,6 +154,24 @@ func RunBatchScp(args *BatchScpArgs) error {
 
 			// Expand ":/path" args with this host's address
 			expanded := ExpandBatchRemote(args.ScpArgs, h)
+
+			// Download mode: replace local destination with per-host subdir
+			if args.DownloadDir != "" {
+				hostDir := filepath.Join(args.DownloadDir, h.Name)
+				if err := os.MkdirAll(hostDir, 0755); err != nil {
+					results <- result{name: h.Name, err: fmt.Errorf("creazione directory %s: %w", hostDir, err)}
+					return
+				}
+				// Replace the last non-flag arg (local destination) with hostDir
+				for j := len(expanded) - 1; j >= 0; j-- {
+					if !strings.HasPrefix(expanded[j], "-") {
+						if _, _, ok := ParseRemotePath(expanded[j]); !ok {
+							expanded[j] = hostDir + string(filepath.Separator)
+							break
+						}
+					}
+				}
+			}
 
 			scpArgs := &ScpArgs{
 				Username:   args.Username,

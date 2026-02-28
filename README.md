@@ -81,7 +81,16 @@ sogark ssh 10.1.2.3
 # → si connette alla macchina via proxy PSMP
 
 # 3. Trasferimento file via SCP
-sogark scp -- file.txt 10.1.2.3:/tmp/
+sogark scp file.txt 10.1.2.3:/tmp/
+
+# 4. Upload a tutti gli host con tag (sintassi #tag)
+sogark scp file.txt oper1@#webservers:/tmp/
+
+# 5. Exec parallelo con #tag
+sogark exec #webservers "uptime"
+
+# 6. Multi-pane (tmux/Windows Terminal)
+sogark multi #production
 ```
 
 Tutto il flusso — autenticazione, download chiavi, connessione — è gestito in automatico con un singolo comando.
@@ -329,6 +338,12 @@ I path remoti (`host:path` o `user@host:path`) vengono riscritti automaticamente
 host:/path  →  corp@target@host@psmp:/path
 ```
 
+**Sintassi `#tag` inline** — seleziona host per tag direttamente nel path remoto:
+```
+#tag1#tag2:/path       →  tutti gli host con tag1 AND tag2
+user@#tag:/path        →  con override utente target
+```
+
 **Flag sogark** (devono precedere i flag scp):
 
 | Flag | Descrizione |
@@ -346,35 +361,26 @@ host:/path  →  corp@target@host@psmp:/path
 # Upload file
 sogark scp file.txt 10.1.2.3:/tmp/
 
-# Upload directory
-sogark scp -r ./mydir 10.1.2.3:/opt/
+# Upload con #tag (a tutti gli host del tag)
+sogark scp file.txt #webservers:/tmp/
+sogark scp file.txt oper1@#web#prod:/tmp/
+sogark scp -r ./deploy oper1@#web#prod:/opt/app/
 
-# Download file
+# Download con #tag (sottocartelle per host)
+sogark scp #webservers:/etc/hosts ./configs/
+# → crea ./configs/web1/hosts, ./configs/web2/hosts, ...
+
+# Upload con flag --tag
+sogark scp --tag webservers file.txt :/tmp/
+
+# Download file singolo
 sogark scp 10.1.2.3:/etc/hosts ./
 
-# Con utente target specifico
-sogark scp file.txt admin@10.1.2.3:/tmp/
-
-# Usa host registrato
-sogark scp file.txt myserver:/tmp/
-
-# Con flag scp nativi (compressione, verbose, porta)
+# Con flag scp nativi
 sogark scp -C -v -P 2222 file.txt 10.1.2.3:/tmp/
 
 # Dry run
-sogark scp --dry-run file.txt 10.1.2.3:/tmp/
-
-# Forza ri-autenticazione
-sogark scp --force-login -r ./mydir 10.1.2.3:/opt/
-
-# Batch: upload a tutti gli host con tag "webservers"
-sogark scp --tag webservers file.txt :/tmp/
-
-# Batch: upload directory a tag multipli
-sogark scp --any-tag web,app -r ./deploy :/opt/app/
-
-# Batch: dry run per vedere i comandi
-sogark scp --dry-run --tag production installer.sh :/tmp/
+sogark scp --dry-run file.txt #production:/tmp/
 ```
 
 **Nota:** SCP è ufficialmente supportato attraverso CyberArk PSMP. Usa lo stesso formato username e la stessa chiave SSH della connessione SSH.
@@ -484,27 +490,34 @@ Rimuove anche l'entry corrispondente da `~/.ssh/config` e la sessione PuTTY (su 
 
 ### sogark multi
 
-Apre una sessione tmux con un pannello SSH per ogni host selezionato, con input sincronizzato tra tutti i pannelli. Utile per eseguire comandi interattivi contemporaneamente su più macchine.
+Apre una sessione multi-pane con un pannello SSH per ogni host selezionato. Auto-detect del backend: Windows Terminal su Windows, tmux su macOS/Linux.
 
 ```bash
-sogark multi [host...] [--tag tag] [--any-tag tag] [--no-sync]
+sogark multi [host...] [--tag tag] [--any-tag tag] [--backend wt|tmux] [--no-sync]
 ```
 
-**Richiede:** `tmux` installato (`brew install tmux` su macOS, `apt install tmux` su Linux).
+**Backend supportati:**
+- **Windows Terminal** (`wt`) — auto-detect su Windows se `wt.exe` è disponibile
+- **tmux** — default su macOS/Linux (`brew install tmux` / `apt install tmux`)
 
 **Esempi:**
 
 ```bash
-# Sessione su tutti gli host con tag "production" (input sincronizzato)
+# Con sintassi #tag
+sogark multi #production
+sogark multi oper1@#web#prod
+
+# Con flag --tag
 sogark multi --tag production
 
 # Sessione su host specifici
 sogark multi web1 web2 db1
 
-# Sessione con filtro OR
-sogark multi --any-tag webservers,databases
+# Forza backend specifico
+sogark multi --backend wt #production
+sogark multi --backend tmux #production
 
-# Senza sincronizzazione input (ogni pannello è indipendente)
+# Senza sincronizzazione input (solo tmux)
 sogark multi --tag production --no-sync
 ```
 
@@ -514,14 +527,8 @@ sogark multi --tag production --no-sync
 |------|-------------|
 | `--tag <tag>` | Seleziona host per tag (AND) |
 | `--any-tag <tag>` | Seleziona host per tag (OR) |
-| `--no-sync` | Disabilita `synchronize-panes` (input indipendente) |
-
-**Come funziona:**
-
-- Crea una sessione tmux chiamata `sogark`
-- Apre un pannello per ogni host con la connessione SSH via PSMP
-- Abilita `synchronize-panes`: tutto ciò che si digita viene inviato a tutti i pannelli
-- Per uscire: `exit` in tutti i pannelli, oppure `Ctrl+B` poi `:kill-session`
+| `--backend <b>` | Backend: `auto` (default), `wt`, `tmux` |
+| `--no-sync` | Disabilita `synchronize-panes` (solo tmux) |
 
 ---
 
@@ -537,7 +544,11 @@ sogark exec --tag <tag> <comando>
 **Esempi:**
 
 ```bash
-# Uptime su tutti i webserver
+# Con sintassi #tag
+sogark exec #webservers "uptime"
+sogark exec oper1@#web#prod "systemctl status nginx"
+
+# Con flag --tag
 sogark exec --tag webservers "uptime"
 
 # Hostname su host specifici

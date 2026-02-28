@@ -14,16 +14,21 @@ import (
 
 func newMultiCmd() *cobra.Command {
 	var (
-		tag    string
-		anyTag string
-		noSync bool
+		tag     string
+		anyTag  string
+		noSync  bool
+		backend string
 	)
 
 	cmd := &cobra.Command{
 		Use:   "multi [host...]",
-		Short: "Sessioni SSH parallele in tmux con pane sincronizzati",
-		Long:  `Apre una sessione tmux con un pane per ogni host, con synchronize-panes abilitato.`,
+		Short: "Sessioni SSH parallele con pane sincronizzati",
+		Long: `Apre una sessione multi-pane con un pane per ogni host.
+Backend auto-detect: Windows Terminal (wt) su Windows, tmux su macOS/Linux.
+Usa --backend per forzare un backend specifico.`,
 		Example: `  sogark multi --tag production
+  sogark multi #production
+  sogark multi oper1@#web#prod
   sogark multi web1 web2 db1
   sogark multi --any-tag web,db
   sogark multi --tag prod --no-sync`,
@@ -33,9 +38,26 @@ func newMultiCmd() *cobra.Command {
 				return err
 			}
 
-			targets, err := resolveTargets(cfg, args, tag, anyTag)
+			// Check for #tag syntax in args
+			tagOverride := tag
+			var userOverride string
+			if tagOverride == "" && anyTag == "" && len(args) == 1 {
+				if u, tags, ok := parseTagArg(args[0]); ok {
+					tagOverride = strings.Join(tags, ",")
+					userOverride = u
+					args = nil // consumed
+				}
+			}
+
+			targets, err := resolveTargets(cfg, args, tagOverride, anyTag)
 			if err != nil {
 				return err
+			}
+
+			if userOverride != "" {
+				for i := range targets {
+					targets[i].TargetUser = userOverride
+				}
 			}
 
 			keyDir, _ := cfg.ResolveKeyDir()
@@ -51,8 +73,9 @@ func newMultiCmd() *cobra.Command {
 			}
 
 			multiArgs := &sshpkg.MultiArgs{
-				Hosts: targets,
-				Sync:  !noSync,
+				Hosts:   targets,
+				Sync:    !noSync,
+				Backend: backend,
 			}
 
 			return sshpkg.RunMulti(multiArgs, cfg.Username, cfg.ProxyHost, keyPath)
@@ -61,7 +84,8 @@ func newMultiCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
 	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
-	cmd.Flags().BoolVar(&noSync, "no-sync", false, "non sincronizzare l'input tra i pane")
+	cmd.Flags().BoolVar(&noSync, "no-sync", false, "non sincronizzare l'input tra i pane (solo tmux)")
+	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wt, tmux")
 
 	return cmd
 }
@@ -124,4 +148,31 @@ func formatHostNames(targets []sshpkg.HostTarget) string {
 		names[i] = t.Name
 	}
 	return strings.Join(names, ", ")
+}
+
+// parseTagArg parses a #tag selector from a string.
+// Formats: #tag, #tag1#tag2, user@#tag1#tag2
+// Returns user override (empty if none), list of tags, and whether it matched.
+func parseTagArg(s string) (user string, tags []string, ok bool) {
+	rest := s
+	if idx := strings.Index(s, "@"); idx >= 0 && idx+1 < len(s) && s[idx+1] == '#' {
+		user = s[:idx]
+		rest = s[idx+1:]
+	}
+
+	if !strings.HasPrefix(rest, "#") {
+		return "", nil, false
+	}
+
+	parts := strings.Split(rest, "#")
+	for _, p := range parts {
+		if p != "" {
+			tags = append(tags, p)
+		}
+	}
+
+	if len(tags) == 0 {
+		return "", nil, false
+	}
+	return user, tags, true
 }
