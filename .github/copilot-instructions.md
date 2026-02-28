@@ -18,7 +18,7 @@ go test ./internal/keys/... -run TestParse  # singolo test
 3. **`internal/keys/`** — Parses key blocks (PEM, OpenSSH, PPK) from the raw API response via regex, saves them with `0600` permissions, and manages a `.key_timestamp` file for TTL validation.
 4. **`internal/hosts/`** — YAML-based host registry with tag system. In-memory `map[tag][]Host` index for AND/OR queries. Also manages `~/.ssh/config` entries and PuTTY sessions (Windows).
 5. **`internal/ssh/`** — SSH command construction (`user@target@host@proxy -i key`), tmux multi-session management, and parallel exec with goroutines.
-6. **`cmd/sogark/`** — Cobra command wiring. Each file maps to a command: `connect.go`, `login.go`, `keys.go`, `hosts.go`, `multi.go`, `exec.go`, `config.go`.
+6. **`cmd/sogark/`** — Cobra command wiring. Each file maps to a command: `ssh.go`, `scp.go`, `login.go`, `keys.go`, `hosts.go`, `multi.go`, `exec.go`, `config.go`.
 
 ## Key Conventions
 
@@ -28,4 +28,4 @@ go test ./internal/keys/... -run TestParse  # singolo test
 - **SSH format**: `corporate_user@target_user@host@proxy_host -i key_path`
 - **Error messages and UI**: in Italian
 - **Platform-specific code**: build tags (`putty_windows.go` / `putty_other.go`)
-- **The `doLogin()` function** in `connect.go` is the shared login flow used by connect, keys, multi, and exec commands
+- **The `doLogin()` function** in `ssh.go` is the shared login flow used by ssh, scp, keys, multi, and exec commands

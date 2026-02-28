@@ -15,7 +15,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConnectCmd() *cobra.Command {
+func newSSHCmd() *cobra.Command {
 	var (
 		user       string
 		keyFormat  string
@@ -24,16 +24,18 @@ func newConnectCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "connect [user@]host [-- ssh-args...]",
+		Use:   "ssh [user@]host [-- ssh-args...]",
 		Short: "Connessione SSH via PSMP con autenticazione automatica",
 		Long: `Flusso completo: verifica chiave -> autenticazione SAML/MFA se necessaria -> connessione SSH.
 
 Se l'host corrisponde a un nome registrato in hosts.yaml, ne risolve indirizzo e utente.
-Argomenti dopo -- vengono passati direttamente al client ssh.`,
-		Example: `  sogark connect 10.1.2.3
-  sogark connect admin@10.1.2.3
-  sogark connect myserver
-  sogark connect 10.1.2.3 -- -L 8080:localhost:80`,
+Argomenti dopo -- vengono passati direttamente al client ssh (tutti i flag ssh standard sono supportati).`,
+		Example: `  sogark ssh 10.1.2.3
+  sogark ssh admin@10.1.2.3
+  sogark ssh myserver
+  sogark ssh 10.1.2.3 -- -L 8080:localhost:80
+  sogark ssh 10.1.2.3 -- -v -o StrictHostKeyChecking=no
+  sogark ssh 10.1.2.3 -- -D 1080`,
 		Args:               cobra.MinimumNArgs(1),
 		DisableFlagParsing: false,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -42,7 +42,8 @@ func main() {
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "output dettagliato per debug")
 
 	rootCmd.AddCommand(
-		newConnectCmd(),
+		newSSHCmd(),
+		newScpCmd(),
 		newLoginCmd(),
 		newKeysCmd(),
 		newConfigCmd(),
