@@ -49,7 +49,7 @@ func main() {
 		newConfigCmd(),
 		newHostsCmd(),
 		newMultiCmd(),
-		newExecCmd(),
+		newMobaCmd(),
 		newCompletionCmd(),
 	)
 

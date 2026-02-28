@@ -17,8 +17,8 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
   - [sogark ssh](#sogark-ssh) — Connessione SSH
   - [sogark scp](#sogark-scp) — Trasferimento file via SCP
   - [sogark hosts](#sogark-hosts) — Registro macchine
-  - [sogark multi](#sogark-multi) — Sessioni tmux parallele
-  - [sogark exec](#sogark-exec) — Esecuzione parallela
+  - [sogark multi](#sogark-multi) — Sessioni multi-pane parallele
+  - [sogark moba](#sogark-moba) — Sessioni MobaXterm
 - [Come funziona](#come-funziona)
 - [Parametri di configurazione](#parametri-di-configurazione)
 - [Struttura file](#struttura-file)
@@ -86,11 +86,11 @@ sogark scp file.txt 10.1.2.3:/tmp/
 # 4. Upload a tutti gli host con tag (sintassi #tag)
 sogark scp file.txt oper1@#webservers:/tmp/
 
-# 5. Exec parallelo con #tag
-sogark exec #webservers "uptime"
-
-# 6. Multi-pane (tmux/Windows Terminal)
+# 5. Multi-pane (tmux/WezTerm)
 sogark multi #production
+
+# 6. MobaXterm multi-tab
+sogark moba #production
 ```
 
 Tutto il flusso — autenticazione, download chiavi, connessione — è gestito in automatico con un singolo comando.
@@ -556,32 +556,32 @@ return { front_end = "Software" }
 
 ---
 
-### sogark exec
+### sogark moba
 
-Esecuzione di un comando su più host. Apre sessioni SSH interattive, invia il comando a tutti i pane e resta attivo per comandi successivi.
-
-**Richiede:** tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).
+Apre MobaXterm con un tab SSH per ogni host selezionato. Stessa sintassi di `multi`.
 
 ```bash
-sogark exec [host...] <comando>
-sogark exec --tag <tag> <comando>
+sogark moba [host...] [--tag tag] [--any-tag tag] [--moba-path path]
 ```
 
 **Esempi:**
 
 ```bash
 # Con sintassi #tag
-sogark exec #webservers "uptime"
-sogark exec oper1@#web#prod "systemctl status nginx"
+sogark moba #production
+sogark moba oper1@#web#prod
 
 # Con flag --tag
-sogark exec --tag webservers "uptime"
+sogark moba --tag webservers
 
 # Host specifici
-sogark exec web1 web2 db1 "cat /etc/hostname"
+sogark moba web1 web2 db1
+
+# Percorso MobaXterm personalizzato
+sogark moba --moba-path "C:\Tools\MobaXterm.exe" #production
 ```
 
-Su WezTerm: dopo il comando iniziale, entra in broadcast mode per comandi successivi. Su tmux: digita il comando e si attacca alla sessione (`Ctrl+B` poi `:kill-session` per uscire).
+Dopo l'apertura, attiva **MultiExec** per inviare comandi a tutti i tab: click destro su un tab → Multi-execution.
 
 **Flag:**
 
@@ -589,8 +589,7 @@ Su WezTerm: dopo il comando iniziale, entra in broadcast mode per comandi succes
 |------|-------------|
 | `--tag <tag>` | Seleziona host per tag (AND) |
 | `--any-tag <tag>` | Seleziona host per tag (OR) |
-
-**Nota:** quando si usano `--tag` o `--any-tag`, l'intero primo argomento è il comando. Senza flag tag, l'ultimo argomento è il comando e i precedenti sono nomi host.
+| `--moba-path <path>` | Percorso esplicito di MobaXterm.exe |
 
 ---
 

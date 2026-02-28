@@ -11,24 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newExecCmd() *cobra.Command {
+func newMobaCmd() *cobra.Command {
 	var (
-		tag    string
-		anyTag string
+		tag      string
+		anyTag   string
+		mobaPath string
 	)
 
 	cmd := &cobra.Command{
-		Use:   "exec [host...] <command>",
-		Short: "Esecuzione di un comando su più host via tmux/WezTerm",
-		Long: `Apre sessioni SSH interattive, sincronizza i pane e digita
-il comando automaticamente. Resta attaccato per comandi successivi.
-Richiede tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).`,
-		Example: `  sogark exec --tag webservers "uptime"
-  sogark exec #webservers "uptime"
-  sogark exec oper1@#web#prod "systemctl status nginx"
-  sogark exec web1 web2 "systemctl status nginx"
-  sogark exec --any-tag web,db "cat /etc/hostname"`,
-		Args: cobra.MinimumNArgs(1),
+		Use:   "moba [host...]",
+		Short: "Apri sessioni SSH in MobaXterm",
+		Long: `Apre MobaXterm con un tab SSH per ogni host selezionato.
+Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
+		Example: `  sogark moba #production
+  sogark moba oper1@#web#prod
+  sogark moba --tag webservers
+  sogark moba web1 web2 db1
+  sogark moba --moba-path "C:\Tools\MobaXterm.exe" #production`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -36,24 +35,17 @@ Richiede tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).`,
 			}
 
 			var hostArgs []string
-			var command string
 			tagOverride := tag
 			var userOverride string
 
-			if tag != "" || anyTag != "" {
-				command = args[0]
-			} else if len(args) >= 2 {
+			if tag == "" && anyTag == "" && len(args) > 0 {
 				// Check if first arg is a #tag selector
 				if u, tags, ok := parseTagArg(args[0]); ok {
 					tagOverride = strings.Join(tags, ",")
 					userOverride = u
-					command = args[1]
 				} else {
-					hostArgs = args[:len(args)-1]
-					command = args[len(args)-1]
+					hostArgs = args
 				}
-			} else {
-				return fmt.Errorf("specifica almeno un host e un comando, oppure usa --tag")
 			}
 
 			targets, err := resolveTargets(cfg, hostArgs, tagOverride, anyTag)
@@ -79,12 +71,13 @@ Richiede tmux o WezTerm (CyberArk PSMP richiede sessioni interattive).`,
 				}
 			}
 
-			return sshpkg.RunExec(targets, command, cfg.Username, cfg.ProxyHost, keyPath)
+			return sshpkg.RunMoba(targets, cfg.Username, cfg.ProxyHost, keyPath, mobaPath)
 		},
 	}
 
 	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
 	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
+	cmd.Flags().StringVar(&mobaPath, "moba-path", "", "percorso MobaXterm.exe")
 
 	return cmd
 }
