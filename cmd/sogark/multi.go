@@ -25,6 +25,7 @@ func newMultiCmd() *cobra.Command {
 		Short: "Sessioni SSH parallele con pane sincronizzati",
 		Long: `Apre una sessione multi-pane con un pane per ogni host.
 Backend auto-detect: Windows Terminal (wt) su Windows, tmux su macOS/Linux.
+Nota: l'input sincronizzato è supportato solo con tmux.
 Usa --backend per forzare un backend specifico.`,
 		Example: `  sogark multi --tag production
   sogark multi #production

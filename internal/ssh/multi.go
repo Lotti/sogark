@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 )
 
 // MultiArgs holds parameters for a multi-pane session.
@@ -152,6 +151,10 @@ func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
 	for _, h := range args.Hosts {
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 	}
+	if args.Sync {
+		fmt.Println("[!] Windows Terminal non supporta input sincronizzato.")
+		fmt.Println("    Per sync usa tmux (es. via WSL): sogark multi --backend tmux ...")
+	}
 
 	cmd := exec.Command(wtExe, wtArgs...)
 	cmd.Stdin = os.Stdin
@@ -160,53 +163,58 @@ func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
 	return cmd.Run()
 }
 
-// RunExec executes a command on multiple hosts in parallel and collects output.
+// RunExec opens interactive SSH sessions via tmux, types the command in all
+// panes (synchronized), and attaches so the user can see output.
+// CyberArk PSMP requires interactive sessions, so BatchMode exec doesn't work.
 func RunExec(hosts []HostTarget, command, username, proxyHost, keyPath string) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("nessun host specificato")
 	}
 
-	type result struct {
-		name   string
-		output string
-		err    error
+	if _, err := exec.LookPath("tmux"); err != nil {
+		return fmt.Errorf("exec richiede tmux (CyberArk richiede sessioni interattive).\n" +
+			"  macOS:  brew install tmux\n" +
+			"  Linux:  sudo apt install tmux")
 	}
 
-	results := make(chan result, len(hosts))
+	sessionName := "sogark-exec"
 
-	for _, h := range hosts {
-		go func(h HostTarget) {
-			user := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
-			cmd := exec.Command("ssh", user, "-i", keyPath, "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", command)
-			out, err := cmd.CombinedOutput()
-			results <- result{name: h.Name, output: string(out), err: err}
-		}(h)
+	// Kill any pre-existing session with same name
+	exec.Command("tmux", "kill-session", "-t", sessionName).Run()
+
+	// Create first pane
+	first := hosts[0]
+	sshCmd := buildSSHCmd(username, first.TargetUser, first.Address, proxyHost, keyPath)
+	cmd := exec.Command("tmux", "new-session", "-d", "-s", sessionName, sshCmd)
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("errore creazione sessione tmux: %w", err)
 	}
 
-	succeeded := 0
-	failed := 0
-	for range hosts {
-		r := <-results
-		lines := strings.Split(strings.TrimSpace(r.output), "\n")
-		for _, line := range lines {
-			if line != "" {
-				fmt.Printf("[%s] %s\n", r.name, line)
-			}
+	// Add remaining hosts as split panes
+	for _, h := range hosts[1:] {
+		sshCmd = buildSSHCmd(username, h.TargetUser, h.Address, proxyHost, keyPath)
+		cmd = exec.Command("tmux", "split-window", "-t", sessionName, sshCmd)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("errore aggiunta pane per %s: %w", h.Name, err)
 		}
-		if r.err != nil {
-			fmt.Fprintf(os.Stderr, "[%s] errore: %v\n", r.name, r.err)
-			failed++
-		} else {
-			succeeded++
-		}
+		exec.Command("tmux", "select-layout", "-t", sessionName, "tiled").Run()
 	}
 
-	total := len(hosts)
-	if failed > 0 {
-		fmt.Printf("[!] %d/%d host completati, %d falliti\n", succeeded, total, failed)
-	} else {
-		fmt.Printf("[+] %d/%d host completati\n", succeeded, total)
-	}
+	// Enable synchronize-panes
+	exec.Command("tmux", "set-window-option", "-t", sessionName, "synchronize-panes", "on").Run()
 
-	return nil
+	// Send the command to all panes (synchronized)
+	exec.Command("tmux", "send-keys", "-t", sessionName, command, "Enter").Run()
+
+	fmt.Printf("[+] Comando inviato a %d host: %s\n", len(hosts), command)
+	fmt.Println("    Ctrl+B poi :kill-session per chiudere")
+
+	// Attach to see output
+	attachCmd := exec.Command("tmux", "attach-session", "-t", sessionName)
+	attachCmd.Stdin = os.Stdin
+	attachCmd.Stdout = os.Stdout
+	attachCmd.Stderr = os.Stderr
+	return attachCmd.Run()
 }

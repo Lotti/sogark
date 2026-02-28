@@ -534,7 +534,9 @@ sogark multi --tag production --no-sync
 
 ### sogark exec
 
-Esecuzione parallela di un comando su più host. L'output viene raccolto e visualizzato con prefisso `[hostname]`.
+Esecuzione di un comando su più host via tmux. Apre sessioni SSH interattive, sincronizza i pane e digita automaticamente il comando. Resta attaccato per vedere l'output.
+
+**Richiede:** `tmux` (CyberArk PSMP richiede sessioni interattive, non supporta esecuzione batch).
 
 ```bash
 sogark exec [host...] <comando>
@@ -551,33 +553,11 @@ sogark exec oper1@#web#prod "systemctl status nginx"
 # Con flag --tag
 sogark exec --tag webservers "uptime"
 
-# Hostname su host specifici
+# Host specifici
 sogark exec web1 web2 db1 "cat /etc/hostname"
-
-# Stato servizio con filtro OR
-sogark exec --any-tag web,db "systemctl status nginx"
-
-# Comando più complesso
-sogark exec --tag production "df -h / | tail -1"
 ```
 
-**Output:**
-
-```
-Host selezionati: web1, web2, db1
-[web1]  10:32:04 up 45 days,  3:21,  0 users,  load average: 0.12, 0.08, 0.05
-[web2]  10:32:04 up 12 days,  1:05,  0 users,  load average: 0.45, 0.32, 0.28
-[db1]   10:32:05 up 90 days,  7:14,  0 users,  load average: 0.03, 0.02, 0.01
-✓ 3/3 host completati
-```
-
-Se alcuni host falliscono:
-
-```
-[web1] output...
-[web2] errore: exit status 255
-⚠ 1/2 host completati, 1 falliti
-```
+Il comando apre tmux con pane sincronizzati, digita il comando e si attacca alla sessione. Per uscire: `Ctrl+B` poi `:kill-session`.
 
 **Flag:**
 
