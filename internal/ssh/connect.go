@@ -22,7 +22,7 @@ type ConnectArgs struct {
 // CommandLine returns the full SSH command as a string slice.
 func (a *ConnectArgs) CommandLine() []string {
 	user := fmt.Sprintf("%s@%s@%s@%s", a.Username, a.TargetUser, a.Host, a.ProxyHost)
-	args := []string{"ssh", user, "-i", a.KeyPath}
+	args := []string{"ssh", user, "-i", a.KeyPath, "-o", "IdentitiesOnly=yes"}
 	args = append(args, a.ExtraArgs...)
 	return args
 }

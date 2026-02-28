@@ -256,7 +256,7 @@ sogark keys clean --dir /tmp/deploy           # pulisci directory specifica
 Connessione SSH completa via PSMP proxy con autenticazione automatica.
 
 ```bash
-sogark ssh [user@]host [-- ssh-args...]
+sogark ssh [sogark-flags] [user@]host [ssh-args...]
 ```
 
 **Flusso:**
@@ -266,10 +266,10 @@ sogark ssh [user@]host [-- ssh-args...]
 3. Se scadute o assenti → autenticazione SAML/MFA automatica
 4. Costruisce ed esegue il comando SSH nel formato PSMP:
    ```
-   ssh utente@target_user@host@proxy -i chiave
+   ssh utente@target_user@host@proxy -i chiave -o IdentitiesOnly=yes
    ```
 
-Tutti i flag SSH standard sono supportati passandoli dopo `--`.
+Tutti i flag SSH standard sono supportati direttamente. I flag sogark devono precedere l'host.
 
 **Flag sogark:**
 
@@ -292,24 +292,24 @@ sogark ssh admin@10.1.2.3
 # Usa un host registrato (risolve indirizzo e utente da hosts.yaml)
 sogark ssh myserver
 
-# Port forwarding (argomenti dopo -- passati direttamente a ssh)
-sogark ssh 10.1.2.3 -- -L 8080:localhost:80
+# Port forwarding
+sogark ssh 10.1.2.3 -L 8080:localhost:80
 
 # Tunnel SOCKS
-sogark ssh 10.1.2.3 -- -D 1080
+sogark ssh 10.1.2.3 -D 1080
 
 # Verbose + disabilita host key checking
-sogark ssh 10.1.2.3 -- -v -o StrictHostKeyChecking=no
+sogark ssh 10.1.2.3 -v -o StrictHostKeyChecking=no
 
 # Dry run: mostra il comando senza eseguirlo
-sogark ssh 10.1.2.3 --dry-run
-# → ssh mario.rossi@root@10.1.2.3@psmp.sogei.it -i /Users/mario/.sogark/keys/id_sogark
+sogark ssh --dry-run 10.1.2.3
+# → ssh mario.rossi@root@10.1.2.3@psmp.sogei.it -i ~/.sogark/keys/id_sogark -o IdentitiesOnly=yes
 
 # Usa chiave PEM invece di OpenSSH
-sogark ssh 10.1.2.3 --key-format pem
+sogark ssh --key-format pem 10.1.2.3
 
 # Override utente con flag -u
-sogark ssh 10.1.2.3 -u admin
+sogark ssh -u admin 10.1.2.3
 ```
 
 ---
@@ -319,17 +319,17 @@ sogark ssh 10.1.2.3 -u admin
 Trasferimento file via SCP attraverso PSMP proxy con autenticazione automatica.
 
 ```bash
-sogark scp [flags] -- [scp-args...] source... target
+sogark scp [sogark-flags] [scp-flags] source... target
 ```
 
-Wrapper trasparente per `scp`: tutti i flag nativi di scp passano dopo `--`. sogark si occupa di iniettare la chiave SSH (`-i`) e tradurre i path remoti nel formato PSMP.
+Wrapper trasparente per `scp`: sogark si occupa di iniettare la chiave SSH (`-i`) e tradurre i path remoti nel formato PSMP. Tutti i flag nativi di scp sono supportati direttamente.
 
 I path remoti (`host:path` o `user@host:path`) vengono riscritti automaticamente:
 ```
 host:/path  →  corp@target@host@psmp:/path
 ```
 
-**Flag sogark:**
+**Flag sogark** (devono precedere i flag scp):
 
 | Flag | Descrizione |
 |------|-------------|
@@ -342,28 +342,28 @@ host:/path  →  corp@target@host@psmp:/path
 
 ```bash
 # Upload file
-sogark scp -- file.txt 10.1.2.3:/tmp/
+sogark scp file.txt 10.1.2.3:/tmp/
 
 # Upload directory
-sogark scp -- -r ./mydir 10.1.2.3:/opt/
+sogark scp -r ./mydir 10.1.2.3:/opt/
 
 # Download file
-sogark scp -- 10.1.2.3:/etc/hosts ./
+sogark scp 10.1.2.3:/etc/hosts ./
 
 # Con utente target specifico
-sogark scp -- file.txt admin@10.1.2.3:/tmp/
+sogark scp file.txt admin@10.1.2.3:/tmp/
 
 # Usa host registrato
-sogark scp -- file.txt myserver:/tmp/
+sogark scp file.txt myserver:/tmp/
 
 # Con flag scp nativi (compressione, verbose, porta)
-sogark scp -- -C -v -P 2222 file.txt 10.1.2.3:/tmp/
+sogark scp -C -v -P 2222 file.txt 10.1.2.3:/tmp/
 
 # Dry run
-sogark scp --dry-run -- file.txt 10.1.2.3:/tmp/
+sogark scp --dry-run file.txt 10.1.2.3:/tmp/
 
 # Forza ri-autenticazione
-sogark scp --force-login -- file.txt 10.1.2.3:/tmp/
+sogark scp --force-login -r ./mydir 10.1.2.3:/opt/
 ```
 
 **Nota:** SCP è ufficialmente supportato attraverso CyberArk PSMP. Usa lo stesso formato username e la stessa chiave SSH della connessione SSH.

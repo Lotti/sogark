@@ -75,7 +75,7 @@ func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 
 func buildSSHCmd(username, targetUser, host, proxyHost, keyPath string) string {
 	user := fmt.Sprintf("%s@%s@%s@%s", username, targetUser, host, proxyHost)
-	return fmt.Sprintf("ssh %s -i %s", user, keyPath)
+	return fmt.Sprintf("ssh %s -i %s -o IdentitiesOnly=yes", user, keyPath)
 }
 
 // RunExec executes a command on multiple hosts in parallel and collects output.
@@ -95,7 +95,7 @@ func RunExec(hosts []HostTarget, command, username, proxyHost, keyPath string) e
 	for _, h := range hosts {
 		go func(h HostTarget) {
 			user := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
-			cmd := exec.Command("ssh", user, "-i", keyPath, "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", command)
+			cmd := exec.Command("ssh", user, "-i", keyPath, "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", command)
 			out, err := cmd.CombinedOutput()
 			results <- result{name: h.Name, output: string(out), err: err}
 		}(h)

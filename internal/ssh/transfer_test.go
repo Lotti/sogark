@@ -50,20 +50,12 @@ func TestScpArgs_CommandLine(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	// Expected: scp -i /home/mario/.sogark/keys/id_sogark file.txt mario.rossi@root@10.1.2.3@psmp.sogei.it:/tmp/
-	want := []string{
-		"scp", "-i", "/home/mario/.sogark/keys/id_sogark",
-		"file.txt",
-		"mario.rossi@root@10.1.2.3@psmp.sogei.it:/tmp/",
-	}
-	if len(got) != len(want) {
-		t.Fatalf("CommandLine() length = %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("CommandLine()[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
+
+	// Base expected args (without -O which depends on local OpenSSH version)
+	wantPrefix := []string{"scp", "-i", "/home/mario/.sogark/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantSuffix := []string{"file.txt", "mario.rossi@root@10.1.2.3@psmp.sogei.it:/tmp/"}
+
+	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
 
 func TestScpArgs_CommandLine_UserOverride(t *testing.T) {
@@ -76,19 +68,10 @@ func TestScpArgs_CommandLine_UserOverride(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	want := []string{
-		"scp", "-i", "/keys/id_sogark",
-		"-r", "./mydir",
-		"mario.rossi@admin@10.1.2.3@psmp.sogei.it:/opt/",
-	}
-	if len(got) != len(want) {
-		t.Fatalf("CommandLine() length = %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("CommandLine()[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantSuffix := []string{"-r", "./mydir", "mario.rossi@admin@10.1.2.3@psmp.sogei.it:/opt/"}
+
+	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
 
 func TestScpArgs_CommandLine_Download(t *testing.T) {
@@ -101,19 +84,10 @@ func TestScpArgs_CommandLine_Download(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	want := []string{
-		"scp", "-i", "/keys/id_sogark",
-		"mario.rossi@root@10.1.2.3@psmp.sogei.it:/etc/hosts",
-		"./local/",
-	}
-	if len(got) != len(want) {
-		t.Fatalf("CommandLine() length = %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)
-	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("CommandLine()[%d] = %q, want %q", i, got[i], want[i])
-		}
-	}
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantSuffix := []string{"mario.rossi@root@10.1.2.3@psmp.sogei.it:/etc/hosts", "./local/"}
+
+	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
 
 func TestScpArgs_CommandLine_WithFlags(t *testing.T) {
@@ -126,18 +100,41 @@ func TestScpArgs_CommandLine_WithFlags(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	want := []string{
-		"scp", "-i", "/keys/id_sogark",
-		"-C", "-v", "-P", "2222",
-		"file.txt",
-		"mario.rossi@root@host@psmp.sogei.it:/tmp/",
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantSuffix := []string{"-C", "-v", "-P", "2222", "file.txt", "mario.rossi@root@host@psmp.sogei.it:/tmp/"}
+
+	assertCommandLine(t, got, wantPrefix, wantSuffix)
+}
+
+// assertCommandLine checks that got starts with wantPrefix, ends with wantSuffix,
+// and optionally has "-O" in between (depends on local OpenSSH version).
+func assertCommandLine(t *testing.T, got, wantPrefix, wantSuffix []string) {
+	t.Helper()
+	minLen := len(wantPrefix) + len(wantSuffix)
+	maxLen := minLen + 1 // optional -O
+
+	if len(got) < minLen || len(got) > maxLen {
+		t.Fatalf("CommandLine() length = %d, want %d or %d\ngot: %v", len(got), minLen, maxLen, got)
 	}
-	if len(got) != len(want) {
-		t.Fatalf("CommandLine() length = %d, want %d\ngot:  %v\nwant: %v", len(got), len(want), got, want)
+
+	for i, w := range wantPrefix {
+		if got[i] != w {
+			t.Errorf("CommandLine()[%d] = %q, want %q", i, got[i], w)
+		}
 	}
-	for i := range got {
-		if got[i] != want[i] {
-			t.Errorf("CommandLine()[%d] = %q, want %q", i, got[i], want[i])
+
+	suffixStart := len(got) - len(wantSuffix)
+	for i, w := range wantSuffix {
+		if got[suffixStart+i] != w {
+			t.Errorf("CommandLine()[%d] = %q, want %q", suffixStart+i, got[suffixStart+i], w)
+		}
+	}
+
+	// If there's an extra element, it must be -O
+	if len(got) == maxLen {
+		oIdx := len(wantPrefix)
+		if got[oIdx] != "-O" {
+			t.Errorf("CommandLine()[%d] = %q, want %q", oIdx, got[oIdx], "-O")
 		}
 	}
 }

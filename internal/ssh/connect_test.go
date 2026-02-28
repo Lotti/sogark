@@ -15,7 +15,7 @@ func TestCommandLine(t *testing.T) {
 	}
 
 	cmd := args.CommandLine()
-	if len(cmd) < 4 {
+	if len(cmd) < 6 {
 		t.Fatalf("command too short: %v", cmd)
 	}
 	if cmd[0] != "ssh" {
@@ -31,6 +31,9 @@ func TestCommandLine(t *testing.T) {
 	if cmd[3] != "/home/user/.sogark/keys/id_sogark" {
 		t.Errorf("cmd[3]: got %q, want %q", cmd[3], "/home/user/.sogark/keys/id_sogark")
 	}
+	if cmd[4] != "-o" || cmd[5] != "IdentitiesOnly=yes" {
+		t.Errorf("cmd[4:6]: got %v, want [-o IdentitiesOnly=yes]", cmd[4:6])
+	}
 }
 
 func TestCommandLine_WithExtraArgs(t *testing.T) {
@@ -44,11 +47,11 @@ func TestCommandLine_WithExtraArgs(t *testing.T) {
 	}
 
 	cmd := args.CommandLine()
-	if len(cmd) != 7 { // ssh, user@..., -i, /key, -v, -o, Strict...
-		t.Errorf("expected 7 args, got %d: %v", len(cmd), cmd)
+	if len(cmd) != 9 { // ssh, user@..., -i, /key, -o, IdentitiesOnly=yes, -v, -o, Strict...
+		t.Errorf("expected 9 args, got %d: %v", len(cmd), cmd)
 	}
-	if cmd[4] != "-v" {
-		t.Errorf("extra arg[0]: got %q, want %q", cmd[4], "-v")
+	if cmd[6] != "-v" {
+		t.Errorf("extra arg[0]: got %q, want %q", cmd[6], "-v")
 	}
 }
 

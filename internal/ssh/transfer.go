@@ -20,7 +20,13 @@ type ScpArgs struct {
 // CommandLine returns the full scp command as a string slice.
 // Remote paths matching [user@]host:path are rewritten to PSMP format.
 func (a *ScpArgs) CommandLine() []string {
-	args := []string{"scp", "-i", a.KeyPath}
+	args := []string{"scp", "-i", a.KeyPath, "-o", "IdentitiesOnly=yes"}
+
+	// OpenSSH >= 9.0 defaults to SFTP protocol; CyberArk PSMP doesn't
+	// support it. Use -O to force legacy SCP protocol.
+	if scpNeedsLegacyFlag() {
+		args = append(args, "-O")
+	}
 
 	for _, arg := range a.ScpArgs {
 		args = append(args, a.rewriteRemote(arg))
@@ -105,4 +111,21 @@ func HasRemoteArg(args []string) bool {
 		}
 	}
 	return false
+}
+
+// scpNeedsLegacyFlag detects if the local scp uses SFTP by default (OpenSSH >= 9.0)
+// and returns true if -O is needed to force legacy SCP protocol.
+func scpNeedsLegacyFlag() bool {
+	out, err := exec.Command("ssh", "-V").CombinedOutput()
+	if err != nil {
+		return false
+	}
+	s := string(out)
+	idx := strings.Index(s, "OpenSSH_")
+	if idx < 0 {
+		return false
+	}
+	var major int
+	fmt.Sscanf(s[idx+8:], "%d", &major)
+	return major >= 9
 }

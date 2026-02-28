@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -13,50 +14,50 @@ import (
 )
 
 func newScpCmd() *cobra.Command {
-	var (
-		user       string
-		keyFormat  string
-		forceLogin bool
-		dryRun     bool
-	)
-
 	cmd := &cobra.Command{
-		Use:   "scp [flags] -- [scp-args...] source... target",
+		Use:   "scp [sogark-flags] source... target",
 		Short: "Trasferimento file via SCP attraverso PSMP",
-		Long: `Wrapper trasparente per scp: tutti i flag nativi di scp passano dopo --.
-sogark si occupa di iniettare la chiave SSH (-i) e tradurre i path remoti nel formato PSMP.
+		Long: `Wrapper trasparente per scp: sogark inietta la chiave SSH (-i) e traduce i path remoti nel formato PSMP.
 
 I path remoti (host:path o user@host:path) vengono riscritti automaticamente:
   host:/path  →  corp@target@host@psmp:/path
 
+Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere i flag scp.
+Tutti gli altri flag vengono passati direttamente a scp.
+
 Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.`,
 		Example: `  # Upload file
-  sogark scp -- file.txt 10.1.2.3:/tmp/
+  sogark scp file.txt 10.1.2.3:/tmp/
 
   # Upload directory
-  sogark scp -- -r ./mydir 10.1.2.3:/opt/
+  sogark scp -r ./mydir 10.1.2.3:/opt/
 
   # Download file
-  sogark scp -- 10.1.2.3:/etc/hosts ./
+  sogark scp 10.1.2.3:/etc/hosts ./
 
   # Con utente target specifico
-  sogark scp -- file.txt admin@10.1.2.3:/tmp/
+  sogark scp file.txt admin@10.1.2.3:/tmp/
 
   # Usa host registrato
-  sogark scp -- file.txt myserver:/tmp/
+  sogark scp file.txt myserver:/tmp/
 
   # Con flag scp nativi (compressione, verbose, porta)
-  sogark scp -- -C -v -P 2222 file.txt 10.1.2.3:/tmp/
+  sogark scp -C -v -P 2222 file.txt 10.1.2.3:/tmp/
 
   # Dry run (mostra comando senza eseguirlo)
-  sogark scp --dry-run -- file.txt 10.1.2.3:/tmp/
+  sogark scp --dry-run file.txt 10.1.2.3:/tmp/
 
   # Forza ri-autenticazione
-  sogark scp --force-login -- file.txt 10.1.2.3:/tmp/`,
-		DisableFlagParsing: false,
+  sogark scp --force-login -r ./mydir 10.1.2.3:/opt/`,
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return fmt.Errorf("specificare argomenti scp dopo --\nEsempio: sogark scp -- file.txt host:/path")
+			// Manually parse sogark-specific flags; everything else goes to scp.
+			user, keyFormat, forceLogin, dryRun, scpPassArgs, err := parseScpFlags(args)
+			if err != nil {
+				return err
+			}
+			if len(scpPassArgs) == 0 {
+				return fmt.Errorf("specificare source e target\nEsempio: sogark scp file.txt host:/tmp/")
 			}
 
 			cfg, err := config.Load()
@@ -64,7 +65,6 @@ Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.`,
 				return err
 			}
 
-			// Resolve host names from registry in remote path args
 			targetUser := cfg.DefaultTargetUser
 			if user != "" {
 				targetUser = user
@@ -73,7 +73,7 @@ Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.`,
 			sogarkDir, _ := config.Dir()
 			reg, _ := hosts.NewRegistry(sogarkDir)
 
-			resolvedArgs := resolveScpArgs(args, reg, targetUser)
+			resolvedArgs := resolveScpArgs(scpPassArgs, reg, targetUser)
 
 			keyDir, err := cfg.ResolveKeyDir()
 			if err != nil {
@@ -93,7 +93,6 @@ Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.`,
 				}
 			}
 
-			// Determine key path
 			keyName := cfg.SSHKeyName
 			if keyFormat == "pem" {
 				keyName += ".pem"
@@ -118,12 +117,55 @@ Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&user, "user", "u", "", "utente target sulla macchina remota (override)")
-	cmd.Flags().StringVar(&keyFormat, "key-format", "openssh", "formato chiave da usare: openssh, pem")
-	cmd.Flags().BoolVar(&forceLogin, "force-login", false, "forza ri-autenticazione anche se la chiave è valida")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra il comando scp senza eseguirlo")
-
 	return cmd
+}
+
+// parseScpFlags separates sogark-specific flags from scp passthrough args.
+// Sogark flags: --dry-run, --force-login, -u/--user <val>, --key-format <val>, -h/--help.
+// Everything else is collected into passArgs for scp.
+func parseScpFlags(args []string) (user, keyFormat string, forceLogin, dryRun bool, passArgs []string, err error) {
+	keyFormat = "openssh"
+	i := 0
+	for i < len(args) {
+		a := args[i]
+		switch {
+		case a == "--verbose":
+			os.Setenv("SOGARK_DEBUG", "1")
+		case a == "--dry-run":
+			dryRun = true
+		case a == "--force-login":
+			forceLogin = true
+		case a == "-u" || a == "--user":
+			i++
+			if i >= len(args) {
+				err = fmt.Errorf("flag %s richiede un valore", a)
+				return
+			}
+			user = args[i]
+		case strings.HasPrefix(a, "--user="):
+			user = strings.TrimPrefix(a, "--user=")
+		case a == "--key-format":
+			i++
+			if i >= len(args) {
+				err = fmt.Errorf("flag %s richiede un valore", a)
+				return
+			}
+			keyFormat = args[i]
+		case strings.HasPrefix(a, "--key-format="):
+			keyFormat = strings.TrimPrefix(a, "--key-format=")
+		case a == "-h" || a == "--help":
+			err = fmt.Errorf("help")
+			return
+		case a == "--":
+			// explicit separator: everything after goes to scp
+			passArgs = append(passArgs, args[i+1:]...)
+			i = len(args)
+		default:
+			passArgs = append(passArgs, a)
+		}
+		i++
+	}
+	return
 }
 
 // resolveScpArgs resolves host names from the registry in remote path arguments.

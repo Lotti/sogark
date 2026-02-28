@@ -6,7 +6,7 @@ import (
 
 func TestBuildSSHCmd(t *testing.T) {
 	cmd := buildSSHCmd("mario.rossi", "root", "10.0.0.1", "psmp.sogei.it", "/keys/id_sogark")
-	expected := "ssh mario.rossi@root@10.0.0.1@psmp.sogei.it -i /keys/id_sogark"
+	expected := "ssh mario.rossi@root@10.0.0.1@psmp.sogei.it -i /keys/id_sogark -o IdentitiesOnly=yes"
 	if cmd != expected {
 		t.Errorf("got %q, want %q", cmd, expected)
 	}

@@ -16,39 +16,39 @@ import (
 )
 
 func newSSHCmd() *cobra.Command {
-	var (
-		user       string
-		keyFormat  string
-		forceLogin bool
-		dryRun     bool
-	)
-
 	cmd := &cobra.Command{
-		Use:   "ssh [user@]host [-- ssh-args...]",
+		Use:   "ssh [sogark-flags] [user@]host [ssh-args...]",
 		Short: "Connessione SSH via PSMP con autenticazione automatica",
 		Long: `Flusso completo: verifica chiave -> autenticazione SAML/MFA se necessaria -> connessione SSH.
 
 Se l'host corrisponde a un nome registrato in hosts.yaml, ne risolve indirizzo e utente.
-Argomenti dopo -- vengono passati direttamente al client ssh (tutti i flag ssh standard sono supportati).`,
+Tutti i flag ssh standard sono supportati direttamente.
+
+Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere l'host.`,
 		Example: `  sogark ssh 10.1.2.3
   sogark ssh admin@10.1.2.3
   sogark ssh myserver
-  sogark ssh 10.1.2.3 -- -L 8080:localhost:80
-  sogark ssh 10.1.2.3 -- -v -o StrictHostKeyChecking=no
-  sogark ssh 10.1.2.3 -- -D 1080`,
-		Args:               cobra.MinimumNArgs(1),
-		DisableFlagParsing: false,
+  sogark ssh 10.1.2.3 -L 8080:localhost:80
+  sogark ssh 10.1.2.3 -v -o StrictHostKeyChecking=no
+  sogark ssh 10.1.2.3 -D 1080
+  sogark ssh --dry-run 10.1.2.3`,
+		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			user, keyFormat, forceLogin, dryRun, host, sshExtraArgs, err := parseSSHFlags(args)
+			if err != nil {
+				return err
+			}
+			if host == "" {
+				return fmt.Errorf("specificare l'host\nEsempio: sogark ssh 10.1.2.3")
+			}
+
 			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
 
-			target := args[0]
-			extraArgs := args[1:]
-
 			// Resolve from hosts registry
-			targetUser, host := sshpkg.ParseTarget(target, cfg.DefaultTargetUser)
+			targetUser, resolvedHost := sshpkg.ParseTarget(host, cfg.DefaultTargetUser)
 			if user != "" {
 				targetUser = user
 			}
@@ -56,9 +56,9 @@ Argomenti dopo -- vengono passati direttamente al client ssh (tutti i flag ssh s
 			sogarkDir, _ := config.Dir()
 			reg, _ := hosts.NewRegistry(sogarkDir)
 			if reg != nil {
-				if h, ok := reg.Get(host); ok {
-					host = h.Address
-					if h.User != "" && user == "" && !strings.Contains(target, "@") {
+				if h, ok := reg.Get(resolvedHost); ok {
+					resolvedHost = h.Address
+					if h.User != "" && user == "" && !strings.Contains(host, "@") {
 						targetUser = h.User
 					}
 				}
@@ -92,10 +92,10 @@ Argomenti dopo -- vengono passati direttamente al client ssh (tutti i flag ssh s
 			connectArgs := &sshpkg.ConnectArgs{
 				Username:   cfg.Username,
 				TargetUser: targetUser,
-				Host:       host,
+				Host:       resolvedHost,
 				ProxyHost:  cfg.ProxyHost,
 				KeyPath:    keyPath,
-				ExtraArgs:  extraArgs,
+				ExtraArgs:  sshExtraArgs,
 			}
 
 			fmt.Printf("> %s\n", connectArgs.CommandString())
@@ -108,12 +108,57 @@ Argomenti dopo -- vengono passati direttamente al client ssh (tutti i flag ssh s
 		},
 	}
 
-	cmd.Flags().StringVarP(&user, "user", "u", "", "utente target sulla macchina remota (override)")
-	cmd.Flags().StringVar(&keyFormat, "key-format", "openssh", "formato chiave da usare: openssh, pem")
-	cmd.Flags().BoolVar(&forceLogin, "force-login", false, "forza ri-autenticazione anche se la chiave è valida")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra il comando SSH senza eseguirlo")
-
 	return cmd
+}
+
+// parseSSHFlags separates sogark-specific flags from ssh passthrough args.
+// Returns: user, keyFormat, forceLogin, dryRun, host, sshExtraArgs, err.
+// The first non-flag, non-sogark argument is treated as the host.
+func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bool, host string, sshArgs []string, err error) {
+	keyFormat = "openssh"
+	i := 0
+	hostFound := false
+	for i < len(args) {
+		a := args[i]
+		switch {
+		case a == "--verbose":
+			os.Setenv("SOGARK_DEBUG", "1")
+		case !hostFound && a == "--dry-run":
+			dryRun = true
+		case !hostFound && a == "--force-login":
+			forceLogin = true
+		case !hostFound && (a == "-u" || a == "--user"):
+			i++
+			if i >= len(args) {
+				err = fmt.Errorf("flag %s richiede un valore", a)
+				return
+			}
+			user = args[i]
+		case !hostFound && strings.HasPrefix(a, "--user="):
+			user = strings.TrimPrefix(a, "--user=")
+		case !hostFound && a == "--key-format":
+			i++
+			if i >= len(args) {
+				err = fmt.Errorf("flag %s richiede un valore", a)
+				return
+			}
+			keyFormat = args[i]
+		case !hostFound && strings.HasPrefix(a, "--key-format="):
+			keyFormat = strings.TrimPrefix(a, "--key-format=")
+		case a == "-h" || a == "--help":
+			err = fmt.Errorf("help")
+			return
+		case !hostFound && a == "--":
+			// skip separator, next non-flag is host
+		case !hostFound && !strings.HasPrefix(a, "-"):
+			host = a
+			hostFound = true
+		default:
+			sshArgs = append(sshArgs, a)
+		}
+		i++
+	}
+	return
 }
 
 // doLogin performs the full SAML login + key fetch flow.
