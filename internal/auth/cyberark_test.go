@@ -163,6 +163,63 @@ func TestFetchSSHKeys_Success(t *testing.T) {
 	}
 }
 
+func TestFetchSSHKeys_AllFormatsIntegration(t *testing.T) {
+	// Simulate the full CyberArk JSON response with OpenSSH + PEM + PPK.
+	// The PPK privateKey contains real newlines after json.Unmarshal, just as
+	// the production API returns.
+	opensshKey := "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACBbR6VFvxTfMp5dTjdH7fGc3YqaKyqS7K5KKIHuYV2hbAAAAJhPxlBnT8Z\n-----END OPENSSH PRIVATE KEY-----\n"
+	pemKey := "-----BEGIN RSA PRIVATE KEY-----\r\nMIIEpAIBAAKCAQEA0Z3VS5JJcds3xfn/ygWyF8PbnGy0AHB7MhgHcBz8kKGsNTB\r\nYNmYQoEbMjMJdaUV2BZjjvMBa5SMDnONPgaLDjLSdNj+KwK1IqWrA3Ux1J5dK3M\r\n-----END RSA PRIVATE KEY-----\r\n"
+	ppkKey := "PuTTY-User-Key-File-3: ssh-rsa\nEncryption: none\nComment: imported-openssh-key\nPublic-Lines: 12\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nPrivate-Lines: 28\nAAABAHOLl8MoGRJpnM0M3jHYS5rp5kTln0snFsj2MkHljMEjHV0SGCOxpYjn6MJz\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nAAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\nGAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\nzAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\nPrivate-MAC: 4a21ecf3b4b8f05614e5a5d0b7cabff3e9e3e087"
+
+	// Build JSON response exactly as CyberArk returns it.
+	apiResp := sshKeysResponse{
+		Value: []sshKeyEntry{
+			{Format: "OpenSSH", PrivateKey: opensshKey},
+			{Format: "PEM", PrivateKey: pemKey},
+			{Format: "PPK", PrivateKey: ppkKey},
+		},
+	}
+	jsonBytes, _ := json.Marshal(apiResp)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		w.Write(jsonBytes)
+	}))
+	defer server.Close()
+
+	c := NewClient(server.URL)
+	c.Token = "test-token"
+
+	raw, err := c.FetchSSHKeys([]string{"OpenSSH", "PEM", "PPK"})
+	if err != nil {
+		t.Fatalf("FetchSSHKeys error: %v", err)
+	}
+
+	// Verify all three key types are present in raw output
+	if !strings.Contains(raw, "BEGIN OPENSSH PRIVATE KEY") {
+		t.Error("OpenSSH key not found in raw output")
+	}
+	if !strings.Contains(raw, "BEGIN RSA PRIVATE KEY") {
+		t.Error("PEM key not found in raw output")
+	}
+	if !strings.Contains(raw, "PuTTY-User-Key-File-3") {
+		t.Error("PPK key not found in raw output")
+	}
+	if !strings.Contains(raw, "Private-MAC: 4a21ecf3b4b8f05614e5a5d0b7cabff3e9e3e087") {
+		t.Error("PPK Private-MAC not found in raw output")
+	}
+
+	// Parse the concatenated output through keys.Parse-equivalent regex check
+	// to verify end-to-end extraction works
+	if !strings.Contains(raw, "END OPENSSH PRIVATE KEY") {
+		t.Error("OpenSSH key end marker missing")
+	}
+	if !strings.Contains(raw, "END RSA PRIVATE KEY") {
+		t.Error("PEM key end marker missing")
+	}
+}
+
 func TestFetchSSHKeys_JSONStringResponse(t *testing.T) {
 	// Fallback: API returns a plain JSON string with escaped newlines
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

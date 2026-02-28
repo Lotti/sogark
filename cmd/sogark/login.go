@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/sogei/cyberark-cli/internal/auth"
@@ -38,7 +37,7 @@ func newLoginCmd() *cobra.Command {
 				formats = splitCSV(format)
 			}
 
-			samlResponse, err := auth.SAMLResponse(context.Background(), cfg.IDPURL)
+			samlResponse, err := auth.SAMLResponse(signalCtx, cfg.IDPURL, cfg.SAMLTimeoutMinutes)
 			if err != nil {
 				return err
 			}

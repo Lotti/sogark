@@ -116,6 +116,112 @@ func TestParse_EmptyInput(t *testing.T) {
 	}
 }
 
+// realisticPPK simulates a PPK key block as returned by CyberArk JSON API
+// after json.Unmarshal (real newlines, multi-line base64 sections).
+const realisticPPK = "PuTTY-User-Key-File-3: ssh-rsa\n" +
+	"Encryption: none\n" +
+	"Comment: imported-openssh-key\n" +
+	"Public-Lines: 12\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"Private-Lines: 28\n" +
+	"AAABAHOLl8MoGRJpnM0M3jHYS5rp5kTln0snFsj2MkHljMEjHV0SGCOxpYjn6MJz\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"zAomf2OE5rdFzCdJ9vbpYS9R2LuqFb3MLee4EftS07HGR5i5HQGE2j7YFMqU0OJT\n" +
+	"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF+f/KBbIXw9ucbLQAcHsy\n" +
+	"GAewLQZ0PNp6IVP3lXHYjYyHAR5EPiODZNCCqFPRar6VHMGKflkkyVP7ZAz0KN3e\n" +
+	"Private-MAC: 4a21ecf3b4b8f05614e5a5d0b7cabff3e9e3e087"
+
+func TestParse_RealisticPPKFromJSON(t *testing.T) {
+	// Simulate FetchSSHKeys output: three keys concatenated with \n
+	raw := sampleOpenSSH + "\n" + samplePEM + "\n" + realisticPPK
+
+	parsed, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+
+	if !strings.Contains(parsed.PPK, "PuTTY-User-Key-File-3: ssh-rsa") {
+		t.Error("PPK header not found")
+	}
+	if !strings.Contains(parsed.PPK, "Encryption: none") {
+		t.Error("PPK Encryption header not found")
+	}
+	if !strings.Contains(parsed.PPK, "Comment: imported-openssh-key") {
+		t.Error("PPK Comment header not found")
+	}
+	if !strings.Contains(parsed.PPK, "Public-Lines: 12") {
+		t.Error("PPK Public-Lines header not found")
+	}
+	if !strings.Contains(parsed.PPK, "Private-Lines: 28") {
+		t.Error("PPK Private-Lines header not found")
+	}
+	if !strings.Contains(parsed.PPK, "Private-MAC: 4a21ecf3b4b8f05614e5a5d0b7cabff3e9e3e087") {
+		t.Error("PPK Private-MAC not found")
+	}
+	if parsed.OpenSSH == "" {
+		t.Error("OpenSSH key should also be parsed")
+	}
+	if parsed.PEM == "" {
+		t.Error("PEM key should also be parsed")
+	}
+}
+
+func TestParse_PPKWithCRLF(t *testing.T) {
+	// Simulate a PPK key with \r\n line endings (Windows-style from JSON)
+	ppkCRLF := "PuTTY-User-Key-File-3: ssh-rsa\r\n" +
+		"Encryption: none\r\n" +
+		"Comment: imported-openssh-key\r\n" +
+		"Public-Lines: 6\r\n" +
+		"AAAAB3NzaC1yc2EAAAADAQABAAABAQDRndVLkklx2zfF\r\n" +
+		"Private-Lines: 14\r\n" +
+		"AAABAHOLl8MoGRJpnM0M3jHYS5rp5kTln0snFsj2MkHl\r\n" +
+		"Private-MAC: abcdef0123456789abcdef0123456789abcdef01"
+
+	parsed, err := Parse(ppkCRLF)
+	if err != nil {
+		t.Fatalf("Parse error with CRLF PPK: %v", err)
+	}
+	if !strings.Contains(parsed.PPK, "PuTTY-User-Key-File-3") {
+		t.Error("PPK key not found with CRLF line endings")
+	}
+	if !strings.Contains(parsed.PPK, "Private-MAC:") {
+		t.Error("PPK Private-MAC not found with CRLF line endings")
+	}
+}
+
 func TestNormalize_RemovesDuplicateEmptyLines(t *testing.T) {
 	input := "line1\n\n\n\nline2\n\nline3"
 	result := normalize(input)

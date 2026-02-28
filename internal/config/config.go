@@ -24,6 +24,7 @@ const (
 	DefaultTargetUser       = "root"
 	DefaultSSHKeyName       = "id_sogark"
 	DefaultKeyTTLHours      = 4
+	DefaultSAMLTimeoutMin   = 5
 )
 
 var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
@@ -32,7 +33,7 @@ var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
 var ValidKeys = []string{
 	"username", "pvwa_base_url", "idp_url", "proxy_host",
 	"key_dir", "key_formats", "default_target_user",
-	"ssh_key_name", "key_ttl_hours",
+	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
 }
 
 type Config struct {
@@ -43,8 +44,9 @@ type Config struct {
 	KeyDir            string   `yaml:"key_dir"`
 	KeyFormats        []string `yaml:"key_formats"`
 	DefaultTargetUser string   `yaml:"default_target_user"`
-	SSHKeyName        string   `yaml:"ssh_key_name"`
-	KeyTTLHours       int      `yaml:"key_ttl_hours"`
+	SSHKeyName         string   `yaml:"ssh_key_name"`
+	KeyTTLHours        int      `yaml:"key_ttl_hours"`
+	SAMLTimeoutMinutes int      `yaml:"saml_timeout_minutes"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -84,8 +86,9 @@ func Defaults() Config {
 		KeyDir:            keyDir,
 		KeyFormats:        append([]string{}, DefaultKeyFormats...),
 		DefaultTargetUser: DefaultTargetUser,
-		SSHKeyName:        DefaultSSHKeyName,
-		KeyTTLHours:       DefaultKeyTTLHours,
+		SSHKeyName:         DefaultSSHKeyName,
+		KeyTTLHours:        DefaultKeyTTLHours,
+		SAMLTimeoutMinutes: DefaultSAMLTimeoutMin,
 	}
 }
 
@@ -155,6 +158,12 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf("key_ttl_hours deve essere un numero intero positivo")
 		}
 		c.KeyTTLHours = n
+	case "saml_timeout_minutes":
+		n, err := strconv.Atoi(value)
+		if err != nil || n <= 0 {
+			return fmt.Errorf("saml_timeout_minutes deve essere un numero intero positivo")
+		}
+		c.SAMLTimeoutMinutes = n
 	default:
 		return fmt.Errorf("chiave sconosciuta: %q\nChiavi valide: %s", key, strings.Join(ValidKeys, ", "))
 	}
@@ -180,15 +189,16 @@ func (c *Config) Show() string {
 		idpDisplay = idpDisplay[:57] + "..."
 	}
 
-	return fmt.Sprintf(`username:            %s
-pvwa_base_url:       %s
-idp_url:             %s
-proxy_host:          %s
-key_dir:             %s
-key_formats:         %s
-default_target_user: %s
-ssh_key_name:        %s
-key_ttl_hours:       %d`,
+	return fmt.Sprintf(`username:              %s
+pvwa_base_url:         %s
+idp_url:               %s
+proxy_host:            %s
+key_dir:               %s
+key_formats:           %s
+default_target_user:   %s
+ssh_key_name:          %s
+key_ttl_hours:         %d
+saml_timeout_minutes:  %d`,
 		c.Username,
 		c.PVWABaseURL,
 		idpDisplay,
@@ -198,6 +208,7 @@ key_ttl_hours:       %d`,
 		c.DefaultTargetUser,
 		c.SSHKeyName,
 		c.KeyTTLHours,
+		c.SAMLTimeoutMinutes,
 	)
 }
 

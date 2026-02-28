@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -117,7 +116,7 @@ Argomenti dopo -- vengono passati direttamente al client ssh.`,
 
 // doLogin performs the full SAML login + key fetch flow.
 func doLogin(cfg *config.Config) error {
-	samlResponse, err := auth.SAMLResponse(context.Background(), cfg.IDPURL)
+	samlResponse, err := auth.SAMLResponse(signalCtx, cfg.IDPURL, cfg.SAMLTimeoutMinutes)
 	if err != nil {
 		return err
 	}

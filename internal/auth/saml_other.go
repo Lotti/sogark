@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/proto"
 )
 
 // findBrowser looks for a Chromium-based browser, preferring Edge over Chrome.
@@ -49,26 +50,35 @@ func findEdge() string {
 // SAMLResponse captures the SAML response token from the IDP via browser automation.
 // Uses go-rod to control a Chromium-based browser, injecting JavaScript to intercept
 // the SAMLResponse before the IDP auto-submits the form.
-func SAMLResponse(ctx context.Context, idpURL string) (string, error) {
+func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (string, error) {
 	path, err := findBrowser()
 	if err != nil {
 		return "", err
 	}
 
-	u := launcher.New().Bin(path).
+	u, err := launcher.New().Bin(path).
 		Leakless(false).
 		Headless(false).
 		Set("disable-gpu").
-		MustLaunch()
+		Launch()
+	if err != nil {
+		return "", fmt.Errorf("errore avvio browser: %w", err)
+	}
 
-	browser := rod.New().ControlURL(u).MustConnect()
+	browser := rod.New().ControlURL(u)
+	if err := browser.Connect(); err != nil {
+		return "", fmt.Errorf("errore connessione al browser: %w", err)
+	}
 	defer browser.MustClose()
 
-	page := browser.MustPage("")
+	page, err := browser.Page(proto.TargetCreateTarget{URL: ""})
+	if err != nil {
+		return "", fmt.Errorf("errore apertura pagina browser: %w", err)
+	}
 	defer page.MustClose()
 
 	// Inject JS to intercept form submissions containing SAMLResponse
-	page.MustEvalOnNewDocument(`(function() {
+	_, err = page.EvalOnNewDocument(`(function() {
 		var origSubmit = HTMLFormElement.prototype.submit;
 		HTMLFormElement.prototype.submit = function() {
 			var el = this.querySelector('input[name="SAMLResponse"]');
@@ -86,13 +96,19 @@ func SAMLResponse(ctx context.Context, idpURL string) (string, error) {
 			}
 		}, true);
 	})()`)
+	if err != nil {
+		return "", fmt.Errorf("errore iniezione script intercettazione SAML: %w", err)
+	}
 
-	page.MustNavigate(idpURL)
+	err = page.Navigate(idpURL)
+	if err != nil {
+		return "", fmt.Errorf("errore navigazione verso IDP: %w", err)
+	}
 
 	fmt.Println("[*] Apertura browser per login SAML/MFA...")
 	fmt.Println("   Completa l'autenticazione nel browser.")
 
-	deadline := time.After(5 * time.Minute)
+	deadline := time.After(time.Duration(timeoutMinutes) * time.Minute)
 	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 

@@ -38,7 +38,7 @@ func findPowerShell() (string, error) {
 // This uses the exact same approach as PS-SAML-Interactive.psm1: a .NET WebBrowser
 // control that intercepts the Navigating event and extracts the SAMLResponse from the
 // HTML before the IDP auto-submits the form. No external browser process is needed.
-func SAMLResponse(ctx context.Context, idpURL string) (string, error) {
+func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (string, error) {
 	psPath, err := findPowerShell()
 	if err != nil {
 		return "", err
