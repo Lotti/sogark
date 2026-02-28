@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -38,5 +39,51 @@ func TestMultiArgs_DefaultSessionName(t *testing.T) {
 	}
 	if args.SessionName != "" {
 		t.Error("SessionName should be empty before RunMulti sets default")
+	}
+}
+
+func TestBuildSogarkSSHArgs(t *testing.T) {
+	got := buildSogarkSSHArgs("root", "10.0.0.1")
+	want := []string{"sogark", "ssh", "root@10.0.0.1"}
+	if len(got) != len(want) {
+		t.Fatalf("len: got %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("[%d]: got %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestRunMulti_EmptyHosts(t *testing.T) {
+	err := RunMulti(&MultiArgs{Hosts: nil}, "", "", "")
+	if err == nil {
+		t.Fatal("expected error for empty hosts")
+	}
+	if !strings.Contains(err.Error(), "nessun host") {
+		t.Errorf("got %q, want error containing 'nessun host'", err.Error())
+	}
+}
+
+func TestRunMulti_UnsupportedBackend(t *testing.T) {
+	err := RunMulti(&MultiArgs{
+		Hosts:   []HostTarget{{Name: "h1", Address: "1.2.3.4", TargetUser: "root"}},
+		Backend: "invalid",
+	}, "", "", "")
+	if err == nil {
+		t.Fatal("expected error for unsupported backend")
+	}
+	if !strings.Contains(err.Error(), "non supportato") {
+		t.Errorf("got %q, want error containing 'non supportato'", err.Error())
+	}
+}
+
+func TestRunMoba_EmptyHosts(t *testing.T) {
+	err := RunMoba(nil, "", "", "", "")
+	if err == nil {
+		t.Fatal("expected error for empty hosts")
+	}
+	if !strings.Contains(err.Error(), "nessun host") {
+		t.Errorf("got %q, want error containing 'nessun host'", err.Error())
 	}
 }
