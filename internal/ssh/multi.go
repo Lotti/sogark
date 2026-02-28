@@ -2,11 +2,13 @@ package ssh
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // MultiArgs holds parameters for a multi-pane session.
@@ -237,10 +239,15 @@ func runMultiWezTerm(args *MultiArgs, username, proxyHost, keyPath string) error
 		}
 	}
 
+	// Focus the broadcaster pane (the original pane we're running in)
+	broadcasterPaneID := os.Getenv("WEZTERM_PANE")
+	if broadcasterPaneID != "" {
+		exec.Command(weztermBin, "cli", "activate-pane", "--pane-id", broadcasterPaneID).Run()
+	}
+
 	fmt.Printf("[+] WezTerm: %d pane SSH aperti\n", n)
-	for i, h := range args.Hosts {
+	for _, h := range args.Hosts {
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
-		_ = i
 	}
 
 	if !args.Sync {
@@ -282,27 +289,54 @@ func weztermSplitRow(weztermBin, sogarkExe, parentPaneID string, hosts []HostTar
 }
 
 // weztermBroadcastLoop reads lines from stdin and sends them to all panes.
+// Exits when Ctrl+D is pressed or all SSH panes are closed.
 func weztermBroadcastLoop(weztermBin string, paneIDs []string) error {
 	fmt.Println("[+] Broadcast attivo. Digita comandi (Ctrl+D per uscire):")
 	fmt.Println()
 
-	scanner := bufio.NewScanner(os.Stdin)
+	// Start a goroutine that monitors pane liveness
+	done := make(chan struct{})
+	go func() {
+		for {
+			time.Sleep(3 * time.Second)
+			if !weztermAnyPaneAlive(weztermBin, paneIDs) {
+				close(done)
+				return
+			}
+		}
+	}()
+
+	lineCh := make(chan string)
+	eofCh := make(chan struct{})
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			lineCh <- scanner.Text()
+		}
+		close(eofCh)
+	}()
+
 	for {
 		fmt.Print("[sogark] > ")
-		if !scanner.Scan() {
-			break
+		select {
+		case line, ok := <-lineCh:
+			if !ok {
+				fmt.Println("\n[+] Broadcast terminato.")
+				return nil
+			}
+			if line == "" {
+				weztermSendText(weztermBin, paneIDs, "\n")
+			} else {
+				weztermSendText(weztermBin, paneIDs, line+"\n")
+			}
+		case <-eofCh:
+			fmt.Println("\n[+] Broadcast terminato.")
+			return nil
+		case <-done:
+			fmt.Println("\n[+] Tutti i pane SSH chiusi. Broadcast terminato.")
+			return nil
 		}
-		line := scanner.Text()
-		if line == "" {
-			// Send just Enter (useful for confirming prompts)
-			weztermSendText(weztermBin, paneIDs, "\n")
-			continue
-		}
-		weztermSendText(weztermBin, paneIDs, line+"\n")
 	}
-
-	fmt.Println("\n[+] Broadcast terminato. I pane SSH restano attivi.")
-	return nil
 }
 
 // weztermSendText sends text to all specified WezTerm panes.
@@ -312,6 +346,31 @@ func weztermSendText(weztermBin string, paneIDs []string, text string) {
 		cmd.Stdin = strings.NewReader(text)
 		cmd.Run()
 	}
+}
+
+// weztermAnyPaneAlive checks if any of the given pane IDs still exist in WezTerm.
+func weztermAnyPaneAlive(weztermBin string, paneIDs []string) bool {
+	out, err := exec.Command(weztermBin, "cli", "list", "--format", "json").Output()
+	if err != nil {
+		return false
+	}
+	var panes []struct {
+		PaneID int `json:"pane_id"`
+	}
+	if err := json.Unmarshal(out, &panes); err != nil {
+		return false
+	}
+
+	alive := make(map[string]bool)
+	for _, p := range panes {
+		alive[fmt.Sprintf("%d", p.PaneID)] = true
+	}
+	for _, pid := range paneIDs {
+		if alive[pid] {
+			return true
+		}
+	}
+	return false
 }
 
 // RunMoba launches MobaXterm with one tab per host.
