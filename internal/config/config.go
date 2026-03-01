@@ -30,6 +30,7 @@ var ValidKeys = []string{
 	"key_dir", "key_formats", "default_target_user", "default_scp_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
 	"moba_path", "moba_max_sessions", "tabby_path", "winscp_path",
+	"default_multi_backend",
 }
 
 type Config struct {
@@ -48,6 +49,7 @@ type Config struct {
 	MobaMaxSessions    int      `yaml:"moba_max_sessions,omitempty"`
 	TabbyPath          string   `yaml:"tabby_path,omitempty"`
 	WinSCPPath         string   `yaml:"winscp_path,omitempty"`
+	DefaultMultiBackend string  `yaml:"default_multi_backend,omitempty"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -175,6 +177,12 @@ func (c *Config) Set(key, value string) error {
 		c.TabbyPath = value
 	case "winscp_path":
 		c.WinSCPPath = value
+	case "default_multi_backend":
+		valid := map[string]bool{"auto": true, "wezterm": true, "tabby": true, "wt": true, "tmux": true}
+		if !valid[value] {
+			return fmt.Errorf("backend non valido: %q (valori: auto, wezterm, tabby, wt, tmux)", value)
+		}
+		c.DefaultMultiBackend = value
 	default:
 		return fmt.Errorf("chiave sconosciuta: %q\nChiavi valide: %s", key, strings.Join(ValidKeys, ", "))
 	}
@@ -236,6 +244,9 @@ saml_timeout_minutes:  %d`,
 	}
 	if c.WinSCPPath != "" {
 		result += fmt.Sprintf("\nwinscp_path:           %s", c.WinSCPPath)
+	}
+	if c.DefaultMultiBackend != "" {
+		result += fmt.Sprintf("\ndefault_multi_backend: %s", c.DefaultMultiBackend)
 	}
 	return result
 }

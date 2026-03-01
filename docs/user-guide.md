@@ -114,7 +114,7 @@ sogark login --format pem
 
 ```bash
 sogark keys                                 # verifica/scarica chiavi
-sogark keys --dir ~/.ssh --format openssh    # output in directory specifica
+sogark keys --dir ~/.ssh --format openssh   # output in directory specifica
 sogark keys --force-login                   # forza login
 sogark keys clean                           # elimina chiavi
 sogark keys clean --yes                     # senza conferma

@@ -40,6 +40,11 @@ Usa --backend per forzare un backend specifico.`,
 				return err
 			}
 
+			// Use configured default backend if --backend wasn't explicitly set
+			if !cmd.Flags().Changed("backend") && cfg.DefaultMultiBackend != "" {
+				backend = cfg.DefaultMultiBackend
+			}
+
 			// Check for #tag syntax in args
 			tagOverride := tag
 			var userOverride string
