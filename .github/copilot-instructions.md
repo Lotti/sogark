@@ -18,8 +18,8 @@ go test ./internal/keys/... -run TestParse  # singolo test
 3. **`internal/keys/`** — Parses key blocks (PEM, OpenSSH, PPK) from the raw API response via regex, saves them with `0600` permissions, and manages a `.key_timestamp` file for TTL validation.
 4. **`internal/hosts/`** — YAML-based host registry with tag system. In-memory `map[tag][]Host` index for AND/OR/Search queries (wildcards via `path.Match`). Also manages `~/.ssh/config` entries and PuTTY sessions (Windows). `mobaimport.go` parses MobaXterm `.mxtsessions` files.
 5. **`internal/ssh/`** — SSH/SCP command construction (`user@target@host@proxy -i key`), multi-pane session management (WezTerm, Tabby, Windows Terminal, tmux), MobaXterm tab launching, WinSCP session launching, and batch SCP operations.
-6. **`internal/config/`** — YAML config with 15 settable keys. No company-specific defaults in code — all environment-specific values (URLs, hostnames) are set by the user via `config init`.
-7. **`cmd/sogark/`** — Cobra command wiring. Each file maps to a command: `ssh.go`, `scp.go`, `login.go`, `keys.go`, `hosts.go`, `multi.go`, `moba.go`, `winscp.go`, `config.go`, `completion.go`.
+6. **`internal/config/`** — YAML config with 18 settable keys. No company-specific defaults in code — all environment-specific values (URLs, hostnames) are set by the user via `config init`.
+7. **`cmd/sogark/`** — Cobra command wiring. Each file maps to a command: `ssh.go`, `scp.go`, `login.go`, `keys.go`, `hosts.go`, `multi.go`, `moba.go`, `winscp.go`, `update.go`, `config.go`, `completion.go`.
 
 ## Commands
 
@@ -34,11 +34,12 @@ go test ./internal/keys/... -run TestParse  # singolo test
 | `sogark multi` | `multi.go` | Multi-pane SSH: WezTerm/Tabby/WT/tmux backends |
 | `sogark moba` | `moba.go` | MobaXterm multi-tab SSH (Windows) |
 | `sogark winscp` | `winscp.go` | WinSCP SCP/SFTP sessions (Windows) |
+| `sogark update` | `update.go` | Self-update from Nexus raw repository |
 | `sogark completion` | `completion.go` | Shell completion (bash/zsh/fish/powershell) |
 
-## Config Fields (15 settable keys)
+## Config Fields (18 settable keys)
 
-`username`, `pvwa_base_url`, `idp_url`, `proxy_host`, `key_dir`, `key_formats`, `default_target_user`, `default_scp_user`, `ssh_key_name`, `key_ttl_hours`, `saml_timeout_minutes`, `moba_path`, `moba_max_sessions`, `tabby_path`, `winscp_path`
+`username`, `pvwa_base_url`, `idp_url`, `proxy_host`, `key_dir`, `key_formats`, `default_target_user`, `default_scp_user`, `ssh_key_name`, `key_ttl_hours`, `saml_timeout_minutes`, `moba_path`, `moba_max_sessions`, `tabby_path`, `winscp_path`, `default_multi_backend`, `nexus_url`, `nexus_repo`
 
 Generic defaults only: `key_dir=~/.sogark/keys`, `key_formats=[OpenSSH,PEM,PPK]`, `key_ttl_hours=4`, `saml_timeout_minutes=5`, `moba_max_sessions=20`. All company-specific values are empty and set by user.
 
@@ -64,3 +65,5 @@ Additional launchers: `RunMoba()` (MobaXterm tabs), `RunWinSCP()` (WinSCP sessio
 - **Platform-specific code**: build tags (`putty_windows.go` / `putty_other.go`)
 - **The `doLogin()` function** in `ssh.go` is the shared login flow used by ssh, scp, keys, multi, moba, and winscp commands
 - **No company-specific defaults**: Sogei-specific values documented in `docs/user-guide.md` only
+- **Distribution**: `make publish` cross-compiles, bakes Nexus URLs into install scripts, uploads to Nexus raw repository. `sogark update` self-updates from configured Nexus.
+- **Install scripts**: `scripts/install.sh` (bash) and `scripts/install.ps1` (PowerShell) are templates with `__NEXUS_URL__` / `__NEXUS_REPO__` placeholders, replaced at publish time

@@ -20,6 +20,7 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
   - [sogark multi](#sogark-multi)
   - [sogark moba](#sogark-moba)
   - [sogark winscp](#sogark-winscp)
+  - [sogark update](#sogark-update)
 - [Come funziona](#come-funziona)
 - [Parametri di configurazione](#parametri-di-configurazione)
 - [Struttura file](#struttura-file)
@@ -34,6 +35,28 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 
 - **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
+
+### Da Nexus (consigliato)
+
+**macOS / Linux:**
+
+```bash
+curl -fsSL https://<nexus>/repository/sogark-releases/latest/install.sh | bash
+```
+
+**Windows (PowerShell):**
+
+```powershell
+irm https://<nexus>/repository/sogark-releases/latest/install.ps1 | iex
+```
+
+Installa in `~/.sogark/bin/` e aggiunge automaticamente al PATH.
+
+Per installare una versione specifica:
+
+```bash
+VERSION=v1.2.0 curl -fsSL .../install.sh | bash
+```
 
 ### Da sorgente
 
@@ -56,6 +79,16 @@ make build-all
 | `sogark-darwin-amd64` | macOS Intel |
 | `sogark-linux-amd64` | Linux x86_64 |
 | `sogark-windows-amd64.exe` | Windows x86_64 |
+
+### Aggiornamento
+
+```bash
+sogark update               # aggiorna all'ultima versione
+sogark update --check       # controlla senza aggiornare
+sogark update --version v1.2.0  # versione specifica
+```
+
+Richiede `nexus_url` e `nexus_repo` configurati (impostati automaticamente dallo script di installazione).
 
 ---
 
@@ -299,6 +332,32 @@ sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" --tag prod
 
 ---
 
+### sogark update
+
+Aggiorna sogark all'ultima versione disponibile su Nexus.
+
+```bash
+sogark update                       # aggiorna all'ultima versione
+sogark update --check               # controlla senza aggiornare
+sogark update --version v1.2.0      # installa versione specifica
+sogark update --force               # forza re-download
+```
+
+Richiede `nexus_url` e `nexus_repo` configurati:
+
+```bash
+sogark config set nexus_url https://nexus.example.com
+sogark config set nexus_repo sogark-releases
+```
+
+| Flag | Descrizione |
+|------|-------------|
+| `--check` | Solo controllo, non scarica |
+| `--version` | Versione specifica (es. `v1.2.0`) |
+| `--force` | Forza download anche se già aggiornato |
+
+---
+
 ## Come funziona
 
 ### Flusso di autenticazione
@@ -342,6 +401,9 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | `moba_max_sessions` | intero | `20` | Limite tab MobaXterm |
 | `tabby_path` | path | auto-detect | Percorso Tabby |
 | `winscp_path` | path | auto-detect | Percorso WinSCP.exe |
+| `default_multi_backend` | stringa | `auto` | Backend default per multi |
+| `nexus_url` | URL | — | URL base Nexus per aggiornamenti |
+| `nexus_repo` | stringa | — | Nome repository Nexus |
 
 ---
 
@@ -370,6 +432,18 @@ make build-all      # cross-compile 4 piattaforme
 make install        # → /usr/local/bin
 make clean          # pulisci bin/
 ```
+
+### Pubblicazione su Nexus
+
+```bash
+make publish VERSION=v1.0.0 NEXUS_USER=deploy NEXUS_PASS=secret
+```
+
+Cross-compila, genera gli install script con URL baked-in, e carica tutto sul repository Nexus raw sia in `v1.0.0/` che in `latest/`.
+
+Variabili di default (sovrascrivibili):
+- `NEXUS_URL` — URL base Nexus
+- `NEXUS_REPO` — nome repository (default: `sogark-releases`)
 
 ## Test
 

@@ -51,6 +51,7 @@ func main() {
 		newMultiCmd(),
 		newMobaCmd(),
 		newWinSCPCmd(),
+		newUpdateCmd(),
 		newCompletionCmd(),
 	)
 

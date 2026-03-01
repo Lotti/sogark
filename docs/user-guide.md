@@ -14,14 +14,40 @@
 
 ## Installazione
 
-Scarica il binario per il tuo sistema operativo dalla pagina release, oppure compila:
+### macOS / Linux
+
+```bash
+curl -fsSL https://<nexus>/repository/sogark-releases/latest/install.sh | bash
+```
+
+### Windows (PowerShell)
+
+```powershell
+irm https://<nexus>/repository/sogark-releases/latest/install.ps1 | iex
+```
+
+Lo script scarica il binario in `~/.sogark/bin/`, aggiunge la directory al PATH e configura automaticamente `nexus_url` e `nexus_repo` per gli aggiornamenti futuri.
+
+### Versione specifica
+
+```bash
+VERSION=v1.2.0 curl -fsSL .../install.sh | bash
+```
+
+### Da sorgente
 
 ```bash
 make build          # macOS/Linux → bin/sogark
 make build-all      # cross-compile per darwin/linux/windows
 ```
 
-Aggiungi `bin/` al `PATH` oppure copia il binario in `/usr/local/bin` (macOS/Linux) o `C:\Windows\System32` (Windows).
+### Aggiornamento
+
+```bash
+sogark update               # aggiorna all'ultima versione
+sogark update --check       # controlla senza aggiornare
+sogark update --version v1.2.0  # installa versione specifica
+```
 
 ---
 
@@ -82,6 +108,9 @@ default_scp_user: oper1
 | `moba_max_sessions` | intero | `20` | Numero massimo di tab MobaXterm aperti da `sogark moba` |
 | `tabby_path` | path | auto-detect | Percorso eseguibile Tabby |
 | `winscp_path` | path | auto-detect | Percorso eseguibile WinSCP |
+| `default_multi_backend` | stringa | `auto` | Backend default per `sogark multi` |
+| `nexus_url` | URL | — | URL base Nexus per aggiornamenti |
+| `nexus_repo` | stringa | — | Nome repository Nexus raw |
 
 ### Note sul `key_dir`
 
