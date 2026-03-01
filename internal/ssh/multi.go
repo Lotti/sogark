@@ -16,7 +16,8 @@ type MultiArgs struct {
 	SessionName string
 	Hosts       []HostTarget
 	Sync        bool
-	Backend     string // "auto", "tmux", "wt", "wezterm"
+	Backend     string // "auto", "tmux", "wt", "wezterm", "tabby"
+	TabbyPath   string // optional override for Tabby executable
 }
 
 // HostTarget represents a single host for multi/exec commands.
@@ -40,12 +41,21 @@ func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 	switch backend {
 	case "wezterm":
 		return runMultiWezTerm(args, username, proxyHost, keyPath)
+	case "tabby":
+		tabbyBin := args.TabbyPath
+		if tabbyBin == "" {
+			tabbyBin = FindTabby()
+		}
+		if tabbyBin == "" {
+			return fmt.Errorf("Tabby non trovato. Usa 'sogark config set tabby_path /path/to/tabby'")
+		}
+		return RunTabby(args.Hosts, username, proxyHost, keyPath, tabbyBin)
 	case "wt":
 		return runMultiWT(args, username, proxyHost, keyPath)
 	case "tmux":
 		return runMultiTmux(args, username, proxyHost, keyPath)
 	default:
-		return fmt.Errorf("backend %q non supportato (usa 'wezterm', 'wt' o 'tmux')", backend)
+		return fmt.Errorf("backend %q non supportato (usa 'wezterm', 'tabby', 'wt' o 'tmux')", backend)
 	}
 }
 
@@ -59,9 +69,15 @@ func detectMultiBackend() string {
 		if _, err := exec.LookPath("wt.exe"); err == nil {
 			return "wt"
 		}
+		if FindTabby() != "" {
+			return "tabby"
+		}
 	}
 	if _, err := exec.LookPath("tmux"); err == nil {
 		return "tmux"
+	}
+	if FindTabby() != "" {
+		return "tabby"
 	}
 	if _, err := exec.LookPath("wt.exe"); err == nil {
 		return "wt"
@@ -374,13 +390,23 @@ func weztermAnyPaneAlive(weztermBin string, paneIDs []string) bool {
 }
 
 // RunMoba launches MobaXterm with one tab per host.
-func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string) error {
+// maxSessions limits the number of tabs opened (0 = use default of 20).
+func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, maxSessions int) error {
 	if len(hosts) == 0 {
 		return fmt.Errorf("nessun host specificato")
 	}
 
 	if mobaPath == "" {
 		return fmt.Errorf("MobaXterm non trovato")
+	}
+
+	if maxSessions <= 0 {
+		maxSessions = 20
+	}
+	if len(hosts) > maxSessions {
+		fmt.Fprintf(os.Stderr, "[!] Troppi host (%d), limite sessioni MobaXterm: %d. Verranno aperte solo le prime %d sessioni.\n",
+			len(hosts), maxSessions, maxSessions)
+		hosts = hosts[:maxSessions]
 	}
 
 	fmt.Printf("[+] Apertura MobaXterm con %d tab...\n", len(hosts))
@@ -442,4 +468,133 @@ func findMobaXterm() string {
 		}
 	}
 	return ""
+}
+
+// FindTabby searches for Tabby terminal in common locations.
+func FindTabby() string {
+	// PATH first
+	for _, name := range []string{"tabby", "tabby.exe"} {
+		if p, err := exec.LookPath(name); err == nil {
+			return p
+		}
+	}
+
+	candidates := []string{
+		os.Getenv("LOCALAPPDATA") + "\\Programs\\Tabby\\tabby.exe",
+		os.Getenv("ProgramFiles") + "\\Tabby\\tabby.exe",
+		"/Applications/Tabby.app/Contents/MacOS/Tabby",
+		"/usr/local/bin/tabby",
+		"/usr/bin/tabby",
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates,
+			home+"/Applications/Tabby.app/Contents/MacOS/Tabby",
+		)
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// RunTabby opens Tabby terminal with one SSH tab per host.
+func RunTabby(hosts []HostTarget, username, proxyHost, keyPath, tabbyPath string) error {
+	if len(hosts) == 0 {
+		return fmt.Errorf("nessun host specificato")
+	}
+	if tabbyPath == "" {
+		return fmt.Errorf("Tabby non trovato")
+	}
+
+	fmt.Printf("[+] Apertura Tabby con %d tab...\n", len(hosts))
+	for i, h := range hosts {
+		sshUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
+		// Tabby supports opening SSH via URL scheme: tabby open ssh://user@host
+		sshURL := fmt.Sprintf("ssh://%s", sshUser)
+		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
+
+		cmd := exec.Command(tabbyPath, "open", sshURL)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
+		}
+		if i < len(hosts)-1 {
+			time.Sleep(1 * time.Second)
+		}
+	}
+	return nil
+}
+
+// FindWinSCP searches for WinSCP in common Windows locations.
+func FindWinSCP() string {
+	for _, name := range []string{"WinSCP.exe", "winscp.exe"} {
+		if p, err := exec.LookPath(name); err == nil {
+			return p
+		}
+	}
+
+	candidates := []string{
+		os.Getenv("ProgramFiles") + "\\WinSCP\\WinSCP.exe",
+		os.Getenv("ProgramFiles(x86)") + "\\WinSCP\\WinSCP.exe",
+		os.Getenv("LOCALAPPDATA") + "\\Programs\\WinSCP\\WinSCP.exe",
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		candidates = append(candidates,
+			home+"\\WinSCP\\WinSCP.exe",
+			home+"\\Desktop\\WinSCP.exe",
+		)
+	}
+	for _, p := range candidates {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+// RunWinSCP opens WinSCP with one SCP session per host using the PSMP proxy format.
+// keyPath should be a .ppk file (PuTTY format) for best WinSCP compatibility.
+func RunWinSCP(hosts []HostTarget, username, proxyHost, keyPath, winscpPath string) error {
+	if len(hosts) == 0 {
+		return fmt.Errorf("nessun host specificato")
+	}
+	if winscpPath == "" {
+		return fmt.Errorf("WinSCP non trovato")
+	}
+
+	fmt.Printf("[+] Apertura WinSCP con %d sessioni...\n", len(hosts))
+	for i, h := range hosts {
+		// WinSCP connection string: scp://user@host/ with private key
+		scpUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
+		connStr := fmt.Sprintf("scp://%s/", scpUser)
+
+		args := []string{connStr}
+		if keyPath != "" {
+			winKeyPath := strings.ReplaceAll(keyPath, "/", "\\")
+			// Prefer .ppk for WinSCP; fall back to the given path
+			ppkPath := strings.TrimSuffix(winKeyPath, ".pem")
+			ppkPath = strings.TrimSuffix(ppkPath, "")
+			if !strings.HasSuffix(ppkPath, ".ppk") {
+				ppkPath += ".ppk"
+			}
+			if _, err := os.Stat(ppkPath); err == nil {
+				args = append([]string{"/privatekey=" + ppkPath}, args...)
+			} else {
+				args = append([]string{"/privatekey=" + winKeyPath}, args...)
+			}
+		}
+
+		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
+		cmd := exec.Command(winscpPath, args...)
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			fmt.Fprintf(os.Stderr, "[!] Errore apertura sessione per %s: %v\n", h.Name, err)
+		}
+		if i < len(hosts)-1 {
+			time.Sleep(2 * time.Second)
+		}
+	}
+	return nil
 }

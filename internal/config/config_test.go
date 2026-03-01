@@ -9,26 +9,24 @@ import (
 
 func TestDefaults(t *testing.T) {
 	cfg := Defaults()
-	if cfg.PVWABaseURL != DefaultPVWABaseURL {
-		t.Errorf("PVWABaseURL: got %q, want %q", cfg.PVWABaseURL, DefaultPVWABaseURL)
-	}
-	if cfg.IDPURL != DefaultIDPURL {
-		t.Errorf("IDPURL: got %q, want %q", cfg.IDPURL, DefaultIDPURL)
-	}
-	if cfg.ProxyHost != DefaultProxyHost {
-		t.Errorf("ProxyHost: got %q, want %q", cfg.ProxyHost, DefaultProxyHost)
-	}
-	if cfg.DefaultTargetUser != DefaultTargetUser {
-		t.Errorf("DefaultTargetUser: got %q, want %q", cfg.DefaultTargetUser, DefaultTargetUser)
-	}
-	if cfg.SSHKeyName != DefaultSSHKeyName {
-		t.Errorf("SSHKeyName: got %q, want %q", cfg.SSHKeyName, DefaultSSHKeyName)
-	}
 	if cfg.KeyTTLHours != DefaultKeyTTLHours {
 		t.Errorf("KeyTTLHours: got %d, want %d", cfg.KeyTTLHours, DefaultKeyTTLHours)
 	}
+	if cfg.SAMLTimeoutMinutes != DefaultSAMLTimeoutMin {
+		t.Errorf("SAMLTimeoutMinutes: got %d, want %d", cfg.SAMLTimeoutMinutes, DefaultSAMLTimeoutMin)
+	}
 	if len(cfg.KeyFormats) != 3 {
 		t.Errorf("KeyFormats length: got %d, want 3", len(cfg.KeyFormats))
+	}
+	if cfg.MobaMaxSessions != 20 {
+		t.Errorf("MobaMaxSessions: got %d, want 20", cfg.MobaMaxSessions)
+	}
+	// Company-specific fields are empty by default
+	if cfg.PVWABaseURL != "" {
+		t.Errorf("PVWABaseURL should be empty by default, got %q", cfg.PVWABaseURL)
+	}
+	if cfg.ProxyHost != "" {
+		t.Errorf("ProxyHost should be empty by default, got %q", cfg.ProxyHost)
 	}
 }
 
@@ -126,9 +124,6 @@ func TestSaveAndLoad(t *testing.T) {
 	if loaded.Username != "test.user" {
 		t.Errorf("Username: got %q, want %q", loaded.Username, "test.user")
 	}
-	if loaded.PVWABaseURL != DefaultPVWABaseURL {
-		t.Errorf("PVWABaseURL: got %q, want %q", loaded.PVWABaseURL, DefaultPVWABaseURL)
-	}
 	if loaded.KeyTTLHours != DefaultKeyTTLHours {
 		t.Errorf("KeyTTLHours: got %d, want %d", loaded.KeyTTLHours, DefaultKeyTTLHours)
 	}
@@ -176,14 +171,18 @@ func TestResolveKeyDir_Tilde(t *testing.T) {
 func TestShow(t *testing.T) {
 	cfg := Defaults()
 	cfg.Username = "mario.rossi"
+	cfg.PVWABaseURL = "https://cyberark.example.com/PasswordVault"
+	cfg.ProxyHost = "psmp.example.com"
+	cfg.DefaultTargetUser = "root"
+	cfg.SSHKeyName = "id_example"
 	output := cfg.Show()
 
 	mustContain := []string{
 		"mario.rossi",
-		DefaultPVWABaseURL,
-		DefaultProxyHost,
-		DefaultTargetUser,
-		DefaultSSHKeyName,
+		"https://cyberark.example.com",
+		"psmp.example.com",
+		"root",
+		"id_example",
 		"4",
 	}
 	for _, s := range mustContain {
@@ -195,8 +194,9 @@ func TestShow(t *testing.T) {
 
 func TestShow_LongIDPURLTruncated(t *testing.T) {
 	cfg := Defaults()
+	cfg.IDPURL = "https://idp.example.com/login?param1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&param2=bbbbbbb"
 	output := cfg.Show()
-	// DefaultIDPURL is >60 chars, so it should be truncated with "..."
+	// Long IDP URL should be truncated with "..."
 	if !strings.Contains(output, "...") {
 		t.Error("Show() should truncate long IDP URLs")
 	}

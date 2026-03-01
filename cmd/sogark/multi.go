@@ -75,9 +75,10 @@ Usa --backend per forzare un backend specifico.`,
 			}
 
 			multiArgs := &sshpkg.MultiArgs{
-				Hosts:   targets,
-				Sync:    !noSync,
-				Backend: backend,
+				Hosts:     targets,
+				Sync:      !noSync,
+				Backend:   backend,
+				TabbyPath: cfg.TabbyPath,
 			}
 
 			return sshpkg.RunMulti(multiArgs, cfg.Username, cfg.ProxyHost, keyPath)
@@ -87,7 +88,7 @@ Usa --backend per forzare un backend specifico.`,
 	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
 	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
 	cmd.Flags().BoolVar(&noSync, "no-sync", false, "non sincronizzare l'input tra i pane (solo tmux)")
-	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wezterm, wt, tmux")
+	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wezterm, tabby, wt, tmux")
 
 	return cmd
 }

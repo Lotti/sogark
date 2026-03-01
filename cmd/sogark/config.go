@@ -47,8 +47,10 @@ func newConfigInitCmd() *cobra.Command {
 			cfg.PVWABaseURL = prompt(reader, "PVWA Base URL", cfg.PVWABaseURL)
 			cfg.IDPURL = prompt(reader, "IDP URL", cfg.IDPURL)
 			cfg.ProxyHost = prompt(reader, "Proxy host", cfg.ProxyHost)
+			cfg.SSHKeyName = prompt(reader, "Nome chiave SSH", cfg.SSHKeyName)
 			cfg.KeyDir = prompt(reader, "Directory chiavi", cfg.KeyDir)
-			cfg.DefaultTargetUser = prompt(reader, "Utente target di default", cfg.DefaultTargetUser)
+			cfg.DefaultTargetUser = prompt(reader, "Utente target SSH di default", cfg.DefaultTargetUser)
+			cfg.DefaultSCPUser = prompt(reader, "Utente target SCP di default (vuoto = stesso di SSH)", cfg.DefaultSCPUser)
 			formatsStr := prompt(reader, "Formati chiave", strings.Join(cfg.KeyFormats, ","))
 			cfg.KeyFormats = splitCSV(formatsStr)
 

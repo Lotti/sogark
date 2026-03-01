@@ -79,7 +79,7 @@ func TestRunMulti_UnsupportedBackend(t *testing.T) {
 }
 
 func TestRunMoba_EmptyHosts(t *testing.T) {
-	err := RunMoba(nil, "", "", "", "")
+	err := RunMoba(nil, "", "", "", "", 20)
 	if err == nil {
 		t.Fatal("expected error for empty hosts")
 	}

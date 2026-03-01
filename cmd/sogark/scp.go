@@ -76,6 +76,9 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 			}
 
 			targetUser := cfg.DefaultTargetUser
+			if cfg.DefaultSCPUser != "" {
+				targetUser = cfg.DefaultSCPUser
+			}
 			if sf.user != "" {
 				targetUser = sf.user
 			}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 
@@ -199,6 +200,41 @@ func (r *Registry) ByTagsOR(tags []string) []*Host {
 	}
 
 	return r.sortedHosts(result)
+}
+
+// Search returns hosts matching all non-empty criteria (ANDed).
+// namePattern and ipPattern support glob wildcards (*, ?).
+// An empty pattern matches any value.
+// tags is a list of required tags (AND); empty means any tags.
+func (r *Registry) Search(namePattern, ipPattern string, tags []string) []*Host {
+	var candidates []*Host
+	if len(tags) > 0 {
+		candidates = r.ByTagsAND(tags)
+	} else {
+		candidates = r.All()
+	}
+
+	if namePattern == "" && ipPattern == "" {
+		return candidates
+	}
+
+	var result []*Host
+	for _, h := range candidates {
+		if namePattern != "" {
+			ok, _ := path.Match(strings.ToLower(namePattern), strings.ToLower(h.Name))
+			if !ok {
+				continue
+			}
+		}
+		if ipPattern != "" {
+			ok, _ := path.Match(strings.ToLower(ipPattern), strings.ToLower(h.Address))
+			if !ok {
+				continue
+			}
+		}
+		result = append(result, h)
+	}
+	return result
 }
 
 func (r *Registry) rebuildIndex() {

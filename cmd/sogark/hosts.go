@@ -22,6 +22,7 @@ func newHostsCmd() *cobra.Command {
 		newHostsRemoveCmd(),
 		newHostsTagCmd(),
 		newHostsImportMobaCmd(),
+		newHostsSearchCmd(),
 	)
 
 	return cmd
@@ -325,6 +326,100 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 
 	cmd.Flags().StringVar(&extraTag, "tag", "", "tag aggiuntivo da applicare a tutti gli host importati")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra anteprima senza importare")
+
+	return cmd
+}
+
+func newHostsSearchCmd() *cobra.Command {
+	var (
+		namePattern string
+		ipPattern   string
+		tagFilter   string
+		addTags     string
+		removeTags  string
+	)
+
+	cmd := &cobra.Command{
+		Use:   "search [pattern]",
+		Short: "Cerca host nel registro per nome, IP o tag",
+		Long: `Cerca host nel registro. Supporta wildcard (* e ?) per nome e IP.
+I criteri vengono combinati in AND.
+Con --add-tag e/o --remove-tag modifica i tag degli host trovati.`,
+		Example: `  sogark hosts search                        # tutti gli host
+  sogark hosts search "web*"                 # nomi che iniziano con "web"
+  sogark hosts search --name "*db*"
+  sogark hosts search --ip "10.50.1.*"
+  sogark hosts search --tag prod
+  sogark hosts search --name "web*" --tag prod --add-tag reviewed
+  sogark hosts search --ip "10.0.*" --remove-tag old`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// positional arg is a shorthand for --name
+			if len(args) == 1 && namePattern == "" {
+				namePattern = args[0]
+			}
+
+			reg, _, err := loadRegistry()
+			if err != nil {
+				return err
+			}
+
+			var tagList []string
+			if tagFilter != "" {
+				tagList = splitCSV(tagFilter)
+			}
+
+			results := reg.Search(namePattern, ipPattern, tagList)
+
+			if len(results) == 0 {
+				fmt.Println("[i] Nessun host trovato.")
+				return nil
+			}
+
+			// If editing tags, apply changes and save
+			doEdit := addTags != "" || removeTags != ""
+			if doEdit {
+				addList := splitCSV(addTags)
+				removeList := splitCSV(removeTags)
+				for _, h := range results {
+					if len(addList) > 0 {
+						_ = reg.AddTags(h.Name, addList)
+					}
+					if len(removeList) > 0 {
+						_ = reg.RemoveTags(h.Name, removeList)
+					}
+				}
+				if err := reg.Save(); err != nil {
+					return fmt.Errorf("errore salvataggio registro: %w", err)
+				}
+				fmt.Printf("[+] Tag aggiornati su %d host\n", len(results))
+				// Re-read updated hosts for display
+				results = reg.Search(namePattern, ipPattern, tagList)
+			}
+
+			fmt.Printf("%-20s %-20s %-15s %s\n", "NOME", "INDIRIZZO", "UTENTE", "TAG")
+			fmt.Println(strings.Repeat("─", 70))
+			for _, h := range results {
+				user := h.User
+				if user == "" {
+					user = "-"
+				}
+				tags := strings.Join(h.Tags, ", ")
+				if tags == "" {
+					tags = "-"
+				}
+				fmt.Printf("%-20s %-20s %-15s %s\n", h.Name, h.Address, user, tags)
+			}
+			fmt.Printf("\n%d host trovati\n", len(results))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&namePattern, "name", "", "filtro per nome (supporta wildcard * e ?)")
+	cmd.Flags().StringVar(&ipPattern, "ip", "", "filtro per indirizzo IP (supporta wildcard * e ?)")
+	cmd.Flags().StringVar(&tagFilter, "tag", "", "filtro per tag (AND, separati da virgola)")
+	cmd.Flags().StringVar(&addTags, "add-tag", "", "aggiunge tag agli host trovati")
+	cmd.Flags().StringVar(&removeTags, "remove-tag", "", "rimuove tag dagli host trovati")
 
 	return cmd
 }

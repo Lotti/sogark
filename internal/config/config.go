@@ -11,20 +11,15 @@ import (
 )
 
 const (
-	DirName    = ".sogark"
-	FileName   = "config.yaml"
+	DirName     = ".sogark"
+	FileName    = "config.yaml"
 	KeysDirName = "keys"
 )
 
-// Default values for Sogei environment
+// Generic defaults (not company-specific).
 const (
-	DefaultPVWABaseURL      = "https://cyberark.sogei.it/PasswordVault"
-	DefaultIDPURL           = "https://aag4837.my.idaptive.app/login?yfirtnecapplogin=true&appKey=0f8346cb-fc6f-4ed4-9ebc-e2fcf5ae90c8&customerId=AAG4837&stateId=hFdfLAHPLkyZj2ml2B5cjMBjVjnT6AZd42pjywyZBoU1&yfirtnecrun=true"
-	DefaultProxyHost        = "psmp.sogei.it"
-	DefaultTargetUser       = "root"
-	DefaultSSHKeyName       = "id_sogark"
-	DefaultKeyTTLHours      = 4
-	DefaultSAMLTimeoutMin   = 5
+	DefaultKeyTTLHours    = 4
+	DefaultSAMLTimeoutMin = 5
 )
 
 var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
@@ -32,23 +27,27 @@ var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
 // ValidKeys lists all settable configuration keys.
 var ValidKeys = []string{
 	"username", "pvwa_base_url", "idp_url", "proxy_host",
-	"key_dir", "key_formats", "default_target_user",
+	"key_dir", "key_formats", "default_target_user", "default_scp_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
-	"moba_path",
+	"moba_path", "moba_max_sessions", "tabby_path", "winscp_path",
 }
 
 type Config struct {
-	Username          string   `yaml:"username"`
-	PVWABaseURL       string   `yaml:"pvwa_base_url"`
-	IDPURL            string   `yaml:"idp_url"`
-	ProxyHost         string   `yaml:"proxy_host"`
-	KeyDir            string   `yaml:"key_dir"`
-	KeyFormats        []string `yaml:"key_formats"`
-	DefaultTargetUser string   `yaml:"default_target_user"`
+	Username           string   `yaml:"username"`
+	PVWABaseURL        string   `yaml:"pvwa_base_url"`
+	IDPURL             string   `yaml:"idp_url"`
+	ProxyHost          string   `yaml:"proxy_host"`
+	KeyDir             string   `yaml:"key_dir"`
+	KeyFormats         []string `yaml:"key_formats"`
+	DefaultTargetUser  string   `yaml:"default_target_user"`
+	DefaultSCPUser     string   `yaml:"default_scp_user,omitempty"`
 	SSHKeyName         string   `yaml:"ssh_key_name"`
 	KeyTTLHours        int      `yaml:"key_ttl_hours"`
 	SAMLTimeoutMinutes int      `yaml:"saml_timeout_minutes"`
 	MobaPath           string   `yaml:"moba_path,omitempty"`
+	MobaMaxSessions    int      `yaml:"moba_max_sessions,omitempty"`
+	TabbyPath          string   `yaml:"tabby_path,omitempty"`
+	WinSCPPath         string   `yaml:"winscp_path,omitempty"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -78,19 +77,15 @@ func DefaultKeyDir() (string, error) {
 	return filepath.Join(dir, KeysDirName), nil
 }
 
-// Defaults returns a Config with Sogei default values.
+// Defaults returns a Config with generic default values (not company-specific).
 func Defaults() Config {
 	keyDir, _ := DefaultKeyDir()
 	return Config{
-		PVWABaseURL:       DefaultPVWABaseURL,
-		IDPURL:            DefaultIDPURL,
-		ProxyHost:         DefaultProxyHost,
-		KeyDir:            keyDir,
-		KeyFormats:        append([]string{}, DefaultKeyFormats...),
-		DefaultTargetUser: DefaultTargetUser,
-		SSHKeyName:         DefaultSSHKeyName,
+		KeyDir:             keyDir,
+		KeyFormats:         append([]string{}, DefaultKeyFormats...),
 		KeyTTLHours:        DefaultKeyTTLHours,
 		SAMLTimeoutMinutes: DefaultSAMLTimeoutMin,
+		MobaMaxSessions:    20,
 	}
 }
 
@@ -152,6 +147,8 @@ func (c *Config) Set(key, value string) error {
 		c.KeyFormats = splitAndTrim(value)
 	case "default_target_user":
 		c.DefaultTargetUser = value
+	case "default_scp_user":
+		c.DefaultSCPUser = value
 	case "ssh_key_name":
 		c.SSHKeyName = value
 	case "key_ttl_hours":
@@ -168,6 +165,16 @@ func (c *Config) Set(key, value string) error {
 		c.SAMLTimeoutMinutes = n
 	case "moba_path":
 		c.MobaPath = value
+	case "moba_max_sessions":
+		n, err := strconv.Atoi(value)
+		if err != nil || n <= 0 {
+			return fmt.Errorf("moba_max_sessions deve essere un numero intero positivo")
+		}
+		c.MobaMaxSessions = n
+	case "tabby_path":
+		c.TabbyPath = value
+	case "winscp_path":
+		c.WinSCPPath = value
 	default:
 		return fmt.Errorf("chiave sconosciuta: %q\nChiavi valide: %s", key, strings.Join(ValidKeys, ", "))
 	}
@@ -200,6 +207,7 @@ proxy_host:            %s
 key_dir:               %s
 key_formats:           %s
 default_target_user:   %s
+default_scp_user:      %s
 ssh_key_name:          %s
 key_ttl_hours:         %d
 saml_timeout_minutes:  %d`,
@@ -210,12 +218,24 @@ saml_timeout_minutes:  %d`,
 		c.KeyDir,
 		strings.Join(c.KeyFormats, ", "),
 		c.DefaultTargetUser,
+		c.DefaultSCPUser,
 		c.SSHKeyName,
 		c.KeyTTLHours,
 		c.SAMLTimeoutMinutes,
 	)
 	if c.MobaPath != "" {
 		result += fmt.Sprintf("\nmoba_path:             %s", c.MobaPath)
+	}
+	maxSess := c.MobaMaxSessions
+	if maxSess == 0 {
+		maxSess = 20
+	}
+	result += fmt.Sprintf("\nmoba_max_sessions:     %d", maxSess)
+	if c.TabbyPath != "" {
+		result += fmt.Sprintf("\ntabby_path:            %s", c.TabbyPath)
+	}
+	if c.WinSCPPath != "" {
+		result += fmt.Sprintf("\nwinscp_path:           %s", c.WinSCPPath)
 	}
 	return result
 }

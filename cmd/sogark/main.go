@@ -50,6 +50,7 @@ func main() {
 		newHostsCmd(),
 		newMultiCmd(),
 		newMobaCmd(),
+		newWinSCPCmd(),
 		newCompletionCmd(),
 	)
 

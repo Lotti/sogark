@@ -76,7 +76,7 @@ Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
 			// Resolve MobaXterm path: flag > config > auto-detect > prompt
 			mobaExe := resolveMobaPath(mobaPath, cfg)
 
-			return sshpkg.RunMoba(targets, cfg.Username, cfg.ProxyHost, keyPath, mobaExe)
+			return sshpkg.RunMoba(targets, cfg.Username, cfg.ProxyHost, keyPath, mobaExe, cfg.MobaMaxSessions)
 		},
 	}
 
