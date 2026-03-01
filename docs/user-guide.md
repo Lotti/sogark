@@ -6,7 +6,9 @@
 - [Prima configurazione](#prima-configurazione)
 - [Riferimento configurazione](#riferimento-configurazione)
 - [Comandi](#comandi)
-- [Esempi d'uso avanzati](#esempi-duso-avanzati)
+- [Client esterni supportati](#client-esterni-supportati)
+- [Esempi d'uso](#esempi-duso)
+- [File di configurazione](#file-di-configurazione)
 
 ---
 
@@ -29,48 +31,18 @@ Aggiungi `bin/` al `PATH` oppure copia il binario in `/usr/local/bin` (macOS/Lin
 sogark config init
 ```
 
-Il wizard interattivo chiede tutti i parametri necessari. I valori tra parentesi sono quelli attuali (se già configurati).
+Il wizard chiede tutti i parametri necessari. Nessun valore è pre-compilato: tutti gli URL e hostname vanno inseriti manualmente alla prima esecuzione.
 
-Puoi modificare un singolo parametro in qualsiasi momento:
+Per modificare un singolo parametro:
 
 ```bash
 sogark config set username mario.rossi
 sogark config show
 ```
 
----
+### Esempio configurazione Sogei
 
-## Riferimento configurazione
-
-| Chiave | Tipo | Default | Descrizione |
-|--------|------|---------|-------------|
-| `username` | stringa | — | Username aziendale usato per autenticarsi al PVWA |
-| `pvwa_base_url` | URL | — | URL base del PVWA (es. `https://cyberark.example.com/PasswordVault`) |
-| `idp_url` | URL | — | URL dell'Identity Provider SAML per il login MFA |
-| `proxy_host` | hostname | — | Hostname del PSMP proxy (es. `psmp.example.com`) |
-| `ssh_key_name` | stringa | — | Nome base del file chiave SSH (es. `id_sogark`) |
-| `key_dir` | path | `~/.sogark/keys` | Directory dove vengono salvate le chiavi SSH temporanee |
-| `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave da scaricare: `OpenSSH`, `PEM`, `PPK` |
-| `key_ttl_hours` | intero | `4` | Durata in ore delle chiavi SSH temporanee |
-| `saml_timeout_minutes` | intero | `5` | Timeout in minuti per completare l'autenticazione SAML |
-| `default_target_user` | stringa | — | Utente target SSH di default (es. `root`) |
-| `default_scp_user` | stringa | — | Utente target SCP di default. Se vuoto, usa `default_target_user` |
-| `moba_path` | path | auto-detect | Percorso eseguibile MobaXterm (es. `C:\Tools\MobaXterm.exe`) |
-| `moba_max_sessions` | intero | `20` | Numero massimo di tab MobaXterm aperti da `sogark moba` |
-| `tabby_path` | path | auto-detect | Percorso eseguibile Tabby (es. `C:\Users\user\AppData\Local\Programs\Tabby\tabby.exe`) |
-| `winscp_path` | path | auto-detect | Percorso eseguibile WinSCP (es. `C:\Program Files (x86)\WinSCP\WinSCP.exe`) |
-
-### Note sul `key_dir`
-
-Il default `~/.sogark/keys` viene risolto automaticamente:
-- macOS/Linux: `$HOME/.sogark/keys`
-- Windows: `%USERPROFILE%\.sogark\keys`
-
----
-
-## Esempio configurazione Sogei
-
-> ⚠️ I valori seguenti sono specifici dell'ambiente Sogei. Non inserirli se sei in un ambiente diverso.
+> I valori seguenti sono specifici dell'ambiente Sogei.
 
 ```yaml
 username: mario.rossi
@@ -86,7 +58,36 @@ key_formats:
 key_ttl_hours: 4
 saml_timeout_minutes: 5
 default_target_user: root
+default_scp_user: oper1
 ```
+
+---
+
+## Riferimento configurazione
+
+| Chiave | Tipo | Default | Descrizione |
+|--------|------|---------|-------------|
+| `username` | stringa | — | Username aziendale per l'autenticazione |
+| `pvwa_base_url` | URL | — | URL base del PVWA (es. `https://cyberark.example.com/PasswordVault`) |
+| `idp_url` | URL | — | URL dell'Identity Provider SAML per il login MFA |
+| `proxy_host` | hostname | — | Hostname del PSMP proxy (es. `psmp.example.com`) |
+| `ssh_key_name` | stringa | — | Nome base del file chiave SSH (es. `id_sogark`) |
+| `key_dir` | path | `~/.sogark/keys` | Directory dove vengono salvate le chiavi SSH temporanee |
+| `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave da scaricare |
+| `key_ttl_hours` | intero | `4` | Durata in ore delle chiavi SSH temporanee |
+| `saml_timeout_minutes` | intero | `5` | Timeout in minuti per completare l'autenticazione SAML |
+| `default_target_user` | stringa | — | Utente target SSH di default (es. `root`) |
+| `default_scp_user` | stringa | — | Utente target SCP. Se vuoto, usa `default_target_user` |
+| `moba_path` | path | auto-detect | Percorso eseguibile MobaXterm |
+| `moba_max_sessions` | intero | `20` | Numero massimo di tab MobaXterm aperti da `sogark moba` |
+| `tabby_path` | path | auto-detect | Percorso eseguibile Tabby |
+| `winscp_path` | path | auto-detect | Percorso eseguibile WinSCP |
+
+### Note sul `key_dir`
+
+Il default `~/.sogark/keys` viene risolto automaticamente:
+- macOS/Linux: `$HOME/.sogark/keys`
+- Windows: `%USERPROFILE%\.sogark\keys`
 
 ---
 
@@ -95,94 +96,89 @@ default_target_user: root
 ### `sogark config`
 
 ```
-sogark config init               # Wizard interattivo prima configurazione
-sogark config show               # Mostra configurazione corrente
-sogark config set <key> <value>  # Modifica un parametro
-sogark config wezterm            # Genera ~/.wezterm.lua per VM con GPU limitata
+sogark config init                          # wizard interattivo
+sogark config show                          # mostra configurazione
+sogark config set <key> <value>             # modifica parametro
+sogark config wezterm                       # genera ~/.wezterm.lua per VM
 ```
 
 ### `sogark login`
 
-Esegue solo l'autenticazione SAML/MFA e salva le chiavi SSH su disco.
-
 ```bash
-sogark login
-sogark login --format pem        # scarica solo formato PEM
+sogark login                                # login SAML/MFA + scarica chiavi
+sogark login --user altro.utente
+sogark login --format pem
 ```
 
 ### `sogark keys`
 
-```
-sogark keys show    # mostra chiavi presenti e scadenza
-sogark keys clear   # elimina chiavi da disco
+```bash
+sogark keys                                 # verifica/scarica chiavi
+sogark keys --dir ~/.ssh --format openssh    # output in directory specifica
+sogark keys --force-login                   # forza login
+sogark keys clean                           # elimina chiavi
+sogark keys clean --yes                     # senza conferma
 ```
 
 ### `sogark ssh`
 
-Connessione SSH a un host tramite PSMP. Autentica automaticamente se la chiave è scaduta.
-
 ```bash
-sogark ssh 10.1.2.3
-sogark ssh admin@10.1.2.3
-sogark ssh myserver              # risolve il nome dal registro hosts
-sogark ssh --tag production      # connessione al primo host con tag production
-sogark ssh --dry-run 10.1.2.3   # mostra il comando senza eseguirlo
+sogark ssh 10.1.2.3                         # connessione base
+sogark ssh admin@10.1.2.3                   # utente target specifico
+sogark ssh myserver                         # risolve da hosts.yaml
+sogark ssh --dry-run 10.1.2.3               # preview
+sogark ssh 10.1.2.3 -L 8080:localhost:80    # flag SSH nativi
 ```
 
 ### `sogark scp`
 
-Trasferimento file SCP tramite PSMP.
-
 ```bash
-sogark scp file.txt 10.1.2.3:/tmp/
-sogark scp 10.1.2.3:/etc/hosts ./
-sogark scp --tag webservers file.txt :/tmp/     # upload su tutti gli host del tag
-sogark scp #web:/etc/nginx.conf ./configs/      # download con #tag inline
+sogark scp file.txt 10.1.2.3:/tmp/          # upload singolo
+sogark scp 10.1.2.3:/etc/hosts ./           # download
+sogark scp file.txt #webservers:/tmp/       # batch con #tag
+sogark scp file.txt oper1@#web#prod:/tmp/   # con utente
+sogark scp --tag web file.txt :/tmp/        # batch con flag
 sogark scp --dry-run file.txt 10.1.2.3:/tmp/
 ```
 
-L'utente target per SCP segue questa priorità:
-1. Flag `-u / --user`
-2. Config `default_scp_user`
-3. Config `default_target_user`
+L'utente target SCP segue: flag `-u` → `default_scp_user` → `default_target_user`.
 
 ### `sogark hosts`
 
-Gestione registro macchine locale (`~/.sogark/hosts.yaml`).
-
 ```bash
-sogark hosts add myserver 10.1.2.3 --tag prod,web
+sogark hosts add web1 10.1.2.1 --tags web,prod
+sogark hosts add db1 10.1.3.1 --user admin --tags db,prod
 sogark hosts list
-sogark hosts list --tag prod
-sogark hosts search --name "web*"
-sogark hosts search --ip "10.50.*" --add-tag legacy
-sogark hosts remove myserver
-sogark hosts tag myserver --add prod --remove old
-sogark hosts import-moba sessions.mxtsessions   # importa da MobaXterm
+sogark hosts list --tag prod                       # AND
+sogark hosts list --any-tag web,db                 # OR
+sogark hosts remove web1
+sogark hosts tag web1 --add critical --remove old
+
+# Ricerca con wildcard
+sogark hosts search "web*"
+sogark hosts search --name "*db*" --ip "10.50.*"
+sogark hosts search --tag prod --add-tag reviewed
+
+# Import MobaXterm
+sogark hosts import-moba sessions.mxtsessions
 sogark hosts import-moba --dry-run sessions.mxtsessions
 ```
 
 ### `sogark multi`
 
-Sessioni SSH parallele con input sincronizzato.
-
 ```bash
-sogark multi --tag production
-sogark multi web1 web2 db1
-sogark multi --backend wezterm --tag prod
+sogark multi --tag production               # auto-detect backend
+sogark multi #production                    # shorthand #tag
+sogark multi oper1@#web#prod                # con utente
+sogark multi web1 web2 db1                  # host espliciti
+sogark multi --backend wezterm --tag prod   # forza backend
 sogark multi --backend tabby --tag prod
-sogark multi --no-sync --tag prod    # senza sincronizzazione input
+sogark multi --no-sync --tag prod           # senza sync
 ```
 
-Backend disponibili (auto-detect):
-- `wezterm` — WezTerm con broadcast input
-- `tabby` — Tabby terminal
-- `wt` — Windows Terminal
-- `tmux` — tmux
+Backend: `wezterm` (broadcast), `tabby`, `wt` (Windows Terminal), `tmux`.
 
 ### `sogark moba`
-
-Apre sessioni SSH in MobaXterm (Windows).
 
 ```bash
 sogark moba --tag production
@@ -192,60 +188,78 @@ sogark moba --moba-path "C:\Tools\MobaXterm.exe" --tag prod
 
 ### `sogark winscp`
 
-Apre sessioni SCP/SFTP in WinSCP (Windows).
-
 ```bash
 sogark winscp 10.1.2.3
 sogark winscp --tag production
-sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" 10.1.2.3
+sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" --tag prod
 ```
 
 ---
 
-## Esempi d'uso avanzati
+## Client esterni supportati
 
-### Workflow tipico giornaliero
-
-```bash
-# Al mattino: rinnova le chiavi (durano 4 ore)
-sogark login
-
-# Connessione SSH rapida
-sogark ssh myserver
-
-# Upload deploy su tutti i webserver
-sogark scp -r ./dist/ --tag web :/var/www/app/
-
-# Apri sessione multi-pane su tutti i server di produzione
-sogark multi --tag production
-```
-
-### Tag annidati (stile MobaXterm)
-
-```bash
-# Importa e usa le cartelle MobaXterm come tag sogark
-sogark hosts import-moba --dry-run ~/Desktop/sessioni.mxtsessions
-sogark hosts import-moba ~/Desktop/sessioni.mxtsessions
-
-# Cerca host con più criteri
-sogark hosts search --name "*web*" --tag prod
-sogark hosts search --ip "10.50.1.*"
-```
+| Client | Comando | Piattaforma | Input sync |
+|--------|---------|-------------|------------|
+| WezTerm | `sogark multi --backend wezterm` | Tutte | ✅ broadcast |
+| Tabby | `sogark multi --backend tabby` | Tutte | ❌ |
+| Windows Terminal | `sogark multi --backend wt` | Windows | ❌ |
+| tmux | `sogark multi --backend tmux` | macOS/Linux | ✅ synchronize-panes |
+| MobaXterm | `sogark moba` | Windows | ✅ via MultiExec |
+| WinSCP | `sogark winscp` | Windows | — (GUI SCP/SFTP) |
 
 ### WezTerm su VM con GPU limitata
 
 ```bash
-# Genera configurazione ottimizzata per VM
 sogark config wezterm
+```
 
-# Se il file esiste già, il comando stampa le righe da aggiungere manualmente
+Genera `~/.wezterm.lua` con `prefer_egl = true` e keybinding clipboard. Se il file esiste già, stampa le righe da aggiungere.
+
+Per la clipboard su Windows, aggiungere al file:
+
+```lua
+keys = {
+  { key = 'c', mods = 'CTRL|SHIFT', action = wezterm.action.CopyTo('Clipboard') },
+  { key = 'v', mods = 'CTRL|SHIFT', action = wezterm.action.PasteFrom('Clipboard') },
+},
+```
+
+### MobaXterm — import sessioni
+
+```bash
+sogark hosts import-moba exported.mxtsessions
+sogark hosts import-moba --tag extra --dry-run exported.mxtsessions
+```
+
+Le cartelle MobaXterm vengono convertite in tag sogark. Cartelle annidate (`A\B`) producono due tag separati: `a`, `b`.
+
+---
+
+## Esempi d'uso
+
+### Workflow giornaliero
+
+```bash
+sogark login                               # rinnova chiavi (4h)
+sogark ssh myserver                        # connessione rapida
+sogark scp -r ./dist/ --tag web :/var/www/ # deploy su tutti i webserver
+sogark multi --tag production              # multi-pane di produzione
+```
+
+### Gestione host
+
+```bash
+# Importa macchine da MobaXterm
+sogark hosts import-moba sessions.mxtsessions
+
+# Cerca e tagga in batch
+sogark hosts search --ip "10.50.1.*" --add-tag legacy
+sogark hosts search --name "*web*" --tag prod --remove-tag old
 ```
 
 ---
 
 ## File di configurazione
-
-Tutti i file sogark sono in `~/.sogark/`:
 
 ```
 ~/.sogark/
@@ -254,5 +268,8 @@ Tutti i file sogark sono in `~/.sogark/`:
 └── keys/
     ├── id_sogark        # Chiave OpenSSH
     ├── id_sogark.pem    # Chiave PEM
-    └── id_sogark.ppk    # Chiave PuTTY/MobaXterm
+    ├── id_sogark.ppk    # Chiave PuTTY/MobaXterm
+    └── .key_timestamp   # Timestamp validità
 ```
+
+Permessi: directory `0700`, chiavi `0600`.
