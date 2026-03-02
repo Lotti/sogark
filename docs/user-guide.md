@@ -83,7 +83,7 @@ key_formats:
   - PPK
 key_ttl_hours: 4
 saml_timeout_minutes: 5
-default_target_user: root
+default_ssh_user: root
 default_scp_user: oper1
 ```
 
@@ -102,8 +102,8 @@ default_scp_user: oper1
 | `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave da scaricare |
 | `key_ttl_hours` | intero | `4` | Durata in ore delle chiavi SSH temporanee |
 | `saml_timeout_minutes` | intero | `5` | Timeout in minuti per completare l'autenticazione SAML |
-| `default_target_user` | stringa | — | Utente target SSH di default (es. `root`) |
-| `default_scp_user` | stringa | — | Utente target SCP. Se vuoto, usa `default_target_user` |
+| `default_ssh_user` | stringa | — | Utente target SSH di default (es. `root`) |
+| `default_scp_user` | stringa | — | Utente target SCP. Se vuoto, usa `default_ssh_user` |
 | `moba_path` | path | auto-detect | Percorso eseguibile MobaXterm |
 | `moba_max_sessions` | intero | `20` | Numero massimo di tab MobaXterm aperti da `sogark moba` |
 | `tabby_path` | path | auto-detect | Percorso eseguibile Tabby |
@@ -170,7 +170,7 @@ sogark scp --tag web file.txt :/tmp/        # batch con flag
 sogark scp --dry-run file.txt 10.1.2.3:/tmp/
 ```
 
-L'utente target SCP segue: flag `-u` → `default_scp_user` → `default_target_user`.
+L'utente target SCP segue: flag `-u` → `default_scp_user` → `default_ssh_user`.
 
 ### `sogark hosts`
 

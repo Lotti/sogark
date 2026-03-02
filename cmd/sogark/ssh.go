@@ -48,7 +48,7 @@ Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere l'host
 			}
 
 			// Resolve from hosts registry
-			targetUser, resolvedHost := sshpkg.ParseTarget(host, cfg.DefaultTargetUser)
+			targetUser, resolvedHost := sshpkg.ParseTarget(host, cfg.DefaultSSHUser)
 			if user != "" {
 				targetUser = user
 			}

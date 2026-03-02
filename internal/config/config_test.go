@@ -52,7 +52,7 @@ func TestSet_ValidKeys(t *testing.T) {
 		{"idp_url", "https://idp.example.com", func() bool { return cfg.IDPURL == "https://idp.example.com" }},
 		{"proxy_host", "proxy.example.com", func() bool { return cfg.ProxyHost == "proxy.example.com" }},
 		{"key_dir", "/tmp/keys", func() bool { return cfg.KeyDir == "/tmp/keys" }},
-		{"default_target_user", "admin", func() bool { return cfg.DefaultTargetUser == "admin" }},
+		{"default_ssh_user", "admin", func() bool { return cfg.DefaultSSHUser == "admin" }},
 		{"ssh_key_name", "my_key", func() bool { return cfg.SSHKeyName == "my_key" }},
 		{"key_ttl_hours", "8", func() bool { return cfg.KeyTTLHours == 8 }},
 		{"moba_path", `C:\Tools\MobaXterm.exe`, func() bool { return cfg.MobaPath == `C:\Tools\MobaXterm.exe` }},
@@ -173,7 +173,7 @@ func TestShow(t *testing.T) {
 	cfg.Username = "mario.rossi"
 	cfg.PVWABaseURL = "https://cyberark.example.com/PasswordVault"
 	cfg.ProxyHost = "psmp.example.com"
-	cfg.DefaultTargetUser = "root"
+	cfg.DefaultSSHUser = "root"
 	cfg.SSHKeyName = "id_example"
 	output := cfg.Show()
 

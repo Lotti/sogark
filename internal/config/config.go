@@ -27,7 +27,7 @@ var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
 // ValidKeys lists all settable configuration keys.
 var ValidKeys = []string{
 	"username", "pvwa_base_url", "idp_url", "proxy_host",
-	"key_dir", "key_formats", "default_target_user", "default_scp_user",
+	"key_dir", "key_formats", "default_ssh_user", "default_scp_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
 	"moba_path", "moba_max_sessions", "tabby_path", "winscp_path",
 	"default_multi_backend", "nexus_url", "nexus_repo",
@@ -40,7 +40,7 @@ type Config struct {
 	ProxyHost          string   `yaml:"proxy_host"`
 	KeyDir             string   `yaml:"key_dir"`
 	KeyFormats         []string `yaml:"key_formats"`
-	DefaultTargetUser  string   `yaml:"default_target_user"`
+	DefaultSSHUser     string   `yaml:"default_ssh_user"`
 	DefaultSCPUser     string   `yaml:"default_scp_user,omitempty"`
 	SSHKeyName         string   `yaml:"ssh_key_name"`
 	KeyTTLHours        int      `yaml:"key_ttl_hours"`
@@ -149,8 +149,8 @@ func (c *Config) Set(key, value string) error {
 		c.KeyDir = value
 	case "key_formats":
 		c.KeyFormats = splitAndTrim(value)
-	case "default_target_user":
-		c.DefaultTargetUser = value
+	case "default_ssh_user":
+		c.DefaultSSHUser = value
 	case "default_scp_user":
 		c.DefaultSCPUser = value
 	case "ssh_key_name":
@@ -220,7 +220,7 @@ idp_url:               %s
 proxy_host:            %s
 key_dir:               %s
 key_formats:           %s
-default_target_user:   %s
+default_ssh_user:      %s
 default_scp_user:      %s
 ssh_key_name:          %s
 key_ttl_hours:         %d
@@ -231,7 +231,7 @@ saml_timeout_minutes:  %d`,
 		c.ProxyHost,
 		c.KeyDir,
 		strings.Join(c.KeyFormats, ", "),
-		c.DefaultTargetUser,
+		c.DefaultSSHUser,
 		c.DefaultSCPUser,
 		c.SSHKeyName,
 		c.KeyTTLHours,

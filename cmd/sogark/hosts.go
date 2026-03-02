@@ -67,7 +67,7 @@ func newHostsAddCmd() *cobra.Command {
 			name, address := args[0], args[1]
 			hostUser := user
 			if hostUser == "" {
-				hostUser = cfg.DefaultTargetUser
+				hostUser = cfg.DefaultSSHUser
 			}
 
 			var tagList []string
@@ -258,6 +258,7 @@ func newHostsImportMobaCmd() *cobra.Command {
 	var (
 		extraTag string
 		dryRun   bool
+		noUser   bool
 	)
 
 	cmd := &cobra.Command{
@@ -267,6 +268,7 @@ func newHostsImportMobaCmd() *cobra.Command {
 nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 		Example: `  sogark hosts import-moba sessions.mxtsessions
   sogark hosts import-moba --tag production sessions.mxtsessions
+  sogark hosts import-moba --no-user sessions.mxtsessions
   sogark hosts import-moba --dry-run sessions.mxtsessions`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -292,7 +294,9 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 						tagStr = " [" + strings.Join(tags, ", ") + "]"
 					}
 					user := s.User
-					if user == "" {
+					if noUser {
+						user = "(ignorato)"
+					} else if user == "" {
 						user = "(default)"
 					}
 					fmt.Printf("    %-20s %s (user: %s)%s\n", s.Name, s.Address, user, tagStr)
@@ -311,7 +315,11 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 				if extraTag != "" {
 					tags = append(tags, extraTag)
 				}
-				reg.Add(s.Name, s.Address, s.User, tags)
+				user := s.User
+				if noUser {
+					user = ""
+				}
+				reg.Add(s.Name, s.Address, user, tags)
 				imported++
 			}
 
@@ -326,6 +334,7 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 
 	cmd.Flags().StringVar(&extraTag, "tag", "", "tag aggiuntivo da applicare a tutti gli host importati")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra anteprima senza importare")
+	cmd.Flags().BoolVar(&noUser, "no-user", false, "ignora l'utente delle sessioni MobaXterm (usa default_ssh_user da config)")
 
 	return cmd
 }

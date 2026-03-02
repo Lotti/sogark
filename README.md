@@ -212,7 +212,7 @@ sogark scp --any-tag web,db -r ./deploy :/opt/
 sogark scp --dry-run file.txt #production:/tmp/
 ```
 
-L'utente target SCP segue questa priorità: flag `-u` → `default_scp_user` → `default_target_user`.
+L'utente target SCP segue questa priorità: flag `-u` → `default_scp_user` → `default_ssh_user`.
 
 | Flag | Descrizione |
 |------|-------------|
@@ -395,8 +395,8 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave |
 | `key_ttl_hours` | intero | `4` | Durata chiavi (ore) |
 | `saml_timeout_minutes` | intero | `5` | Timeout autenticazione SAML |
-| `default_target_user` | stringa | — | Utente target SSH di default |
-| `default_scp_user` | stringa | — | Utente target SCP (fallback a `default_target_user`) |
+| `default_ssh_user` | stringa | — | Utente target SSH di default |
+| `default_scp_user` | stringa | — | Utente target SCP (fallback a `default_ssh_user`) |
 | `moba_path` | path | auto-detect | Percorso MobaXterm.exe |
 | `moba_max_sessions` | intero | `20` | Limite tab MobaXterm |
 | `tabby_path` | path | auto-detect | Percorso Tabby |

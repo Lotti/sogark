@@ -78,13 +78,34 @@ func (r *Registry) Save() error {
 	return os.WriteFile(r.filePath, data, 0600)
 }
 
+// slugify converts a string to a lowercase hyphen-separated slug.
+// Spaces and underscores are replaced with hyphens; multiple hyphens are collapsed.
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+	// Collapse consecutive hyphens
+	for strings.Contains(s, "--") {
+		s = strings.ReplaceAll(s, "--", "-")
+	}
+	return strings.Trim(s, "-")
+}
+
 // Add registers a new host or updates an existing one.
+// Name and tags are slugified (spaces → hyphens) for shell-safety.
 func (r *Registry) Add(name, address, user string, tags []string) {
+	name = slugify(name)
+	slugTags := make([]string, 0, len(tags))
+	for _, t := range tags {
+		if s := slugify(t); s != "" {
+			slugTags = append(slugTags, s)
+		}
+	}
 	h := &Host{
 		Name:    name,
 		Address: address,
 		User:    user,
-		Tags:    tags,
+		Tags:    slugTags,
 	}
 	r.file.Hosts[name] = h
 	r.rebuildIndex()

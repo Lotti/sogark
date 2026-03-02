@@ -49,7 +49,7 @@ func newConfigInitCmd() *cobra.Command {
 			cfg.ProxyHost = prompt(reader, "Proxy host", cfg.ProxyHost)
 			cfg.SSHKeyName = prompt(reader, "Nome chiave SSH", cfg.SSHKeyName)
 			cfg.KeyDir = prompt(reader, "Directory chiavi", cfg.KeyDir)
-			cfg.DefaultTargetUser = prompt(reader, "Utente target SSH di default", cfg.DefaultTargetUser)
+			cfg.DefaultSSHUser = prompt(reader, "Utente target SSH di default", cfg.DefaultSSHUser)
 			cfg.DefaultSCPUser = prompt(reader, "Utente target SCP di default (vuoto = stesso di SSH)", cfg.DefaultSCPUser)
 			formatsStr := prompt(reader, "Formati chiave", strings.Join(cfg.KeyFormats, ","))
 			cfg.KeyFormats = splitCSV(formatsStr)
@@ -70,7 +70,7 @@ func newConfigSetCmd() *cobra.Command {
 		Use:   "set <key> <value>",
 		Short: "Imposta un parametro di configurazione",
 		Example: `  sogark config set username mario.rossi
-  sogark config set default_target_user admin
+  sogark config set default_ssh_user admin
   sogark config set key_dir /opt/keys`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

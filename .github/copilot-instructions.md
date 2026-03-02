@@ -39,7 +39,7 @@ go test ./internal/keys/... -run TestParse  # singolo test
 
 ## Config Fields (18 settable keys)
 
-`username`, `pvwa_base_url`, `idp_url`, `proxy_host`, `key_dir`, `key_formats`, `default_target_user`, `default_scp_user`, `ssh_key_name`, `key_ttl_hours`, `saml_timeout_minutes`, `moba_path`, `moba_max_sessions`, `tabby_path`, `winscp_path`, `default_multi_backend`, `nexus_url`, `nexus_repo`
+`username`, `pvwa_base_url`, `idp_url`, `proxy_host`, `key_dir`, `key_formats`, `default_ssh_user`, `default_scp_user`, `ssh_key_name`, `key_ttl_hours`, `saml_timeout_minutes`, `moba_path`, `moba_max_sessions`, `tabby_path`, `winscp_path`, `default_multi_backend`, `nexus_url`, `nexus_repo`
 
 Generic defaults only: `key_dir=~/.sogark/keys`, `key_formats=[OpenSSH,PEM,PPK]`, `key_ttl_hours=4`, `saml_timeout_minutes=5`, `moba_max_sessions=20`. All company-specific values are empty and set by user.
 
@@ -60,7 +60,7 @@ Additional launchers: `RunMoba()` (MobaXterm tabs), `RunWinSCP()` (WinSCP sessio
 - **Host registry**: `~/.sogark/hosts.yaml` with tag-based grouping
 - **SSH key storage**: `~/.sogark/keys/` with `.key_timestamp` for TTL
 - **SSH format**: `corporate_user@target_user@host@proxy_host -i key_path`
-- **SCP target user**: `default_scp_user` → `default_target_user` fallback
+- **SCP target user**: `default_scp_user` → `default_ssh_user` fallback
 - **Error messages and UI**: in Italian
 - **Platform-specific code**: build tags (`putty_windows.go` / `putty_other.go`)
 - **The `doLogin()` function** in `ssh.go` is the shared login flow used by ssh, scp, keys, multi, moba, and winscp commands

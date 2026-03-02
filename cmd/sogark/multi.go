@@ -121,7 +121,7 @@ func resolveTargets(cfg *config.Config, args []string, tag, anyTag string) ([]ss
 				hostList = append(hostList, &hosts.Host{
 					Name:    name,
 					Address: name,
-					User:    cfg.DefaultTargetUser,
+					User:    cfg.DefaultSSHUser,
 				})
 			}
 		}
@@ -137,7 +137,7 @@ func resolveTargets(cfg *config.Config, args []string, tag, anyTag string) ([]ss
 	for i, h := range hostList {
 		user := h.User
 		if user == "" {
-			user = cfg.DefaultTargetUser
+			user = cfg.DefaultSSHUser
 		}
 		targets[i] = sshpkg.HostTarget{
 			Name:       h.Name,

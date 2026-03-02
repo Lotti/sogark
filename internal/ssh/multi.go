@@ -409,6 +409,18 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 		hosts = hosts[:maxSessions]
 	}
 
+	// If MobaXterm is not already running, start it bare and wait for it to initialize
+	if !isMobaXtermRunning() {
+		fmt.Println("[*] MobaXterm non in esecuzione, avvio in corso...")
+		bare := exec.Command(mobaPath)
+		bare.Stderr = os.Stderr
+		if err := bare.Start(); err != nil {
+			return fmt.Errorf("errore avvio MobaXterm: %w", err)
+		}
+		fmt.Println("[*] Attendo inizializzazione MobaXterm (10s)...")
+		time.Sleep(10 * time.Second)
+	}
+
 	fmt.Printf("[+] Apertura MobaXterm con %d tab...\n", len(hosts))
 	for i, h := range hosts {
 		// MobaXterm's embedded SSH interprets backslashes as escape chars,
@@ -423,14 +435,28 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 		if err := cmd.Start(); err != nil {
 			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
 		}
-		// MobaXterm needs time between tab launches
+		// Wait between tab launches (both cold and warm start)
 		if i < len(hosts)-1 {
-			time.Sleep(2 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	}
 
 	fmt.Println("\n[i] Per attivare MultiExec: click destro su un tab → Multi-execution")
 	return nil
+}
+
+// isMobaXtermRunning checks if a MobaXterm process is currently running.
+// Only meaningful on Windows; returns false on other platforms.
+func isMobaXtermRunning() bool {
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq MobaXterm*.exe", "/NH").Output()
+	if err != nil {
+		return false
+	}
+	lower := strings.ToLower(string(out))
+	return strings.Contains(lower, "mobaxterm")
 }
 
 // FindMobaXterm searches for MobaXterm in common locations.
