@@ -29,9 +29,11 @@ func main() {
 	}()
 
 	rootCmd := &cobra.Command{
-		Use:     "sogark",
-		Short:   "CyberArk PSMP CLI — autenticazione SAML/MFA e gestione sessioni SSH",
-		Version: version,
+		Use:           "sogark",
+		Short:         "CyberArk PSMP CLI — autenticazione SAML/MFA e gestione sessioni SSH",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if verbose {
 				os.Setenv("SOGARK_DEBUG", "1")
