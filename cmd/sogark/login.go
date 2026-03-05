@@ -6,6 +6,7 @@ import (
 	"github.com/sogei/cyberark-cli/internal/auth"
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -17,8 +18,8 @@ func newLoginCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Autenticazione SAML/MFA e download chiavi SSH",
-		Long:  `Apre il browser per l'autenticazione SAML/MFA, scarica le chiavi SSH da CyberArk e le salva su disco.`,
+		Short: msg.LoginShort,
+		Long:  msg.LoginLong,
 		Example: `  sogark login
   sogark login --user mario.rossi
   sogark login --format openssh,pem`,
@@ -47,6 +48,7 @@ func newLoginCmd() *cobra.Command {
 				return err
 			}
 
+			fmt.Println(msg.DownloadingKeys)
 			raw, err := client.FetchSSHKeys(formats)
 			if err != nil {
 				return err
@@ -71,18 +73,18 @@ func newLoginCmd() *cobra.Command {
 				return err
 			}
 
-			fmt.Println("[+] Chiavi salvate:")
+			fmt.Println(msg.KeysSaved)
 			for _, r := range results {
 				fmt.Printf("    %-40s (%s)\n", r.Path, r.Format)
 			}
-			fmt.Printf("  Scadenza: tra %dh\n", cfg.KeyTTLHours)
+			fmt.Printf(msg.KeysExpiry, cfg.KeyTTLHours)
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&user, "user", "u", "", "override username aziendale")
-	cmd.Flags().StringVarP(&format, "format", "f", "", "formati chiave (openssh,pem,ppk)")
+	cmd.Flags().StringVarP(&user, "user", "u", "", msg.LoginFlagUser)
+	cmd.Flags().StringVarP(&format, "format", "f", "", msg.LoginFlagFormat)
 
 	return cmd
 }

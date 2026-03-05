@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // findPowerShell locates powershell.exe, checking PATH first then the standard
@@ -30,8 +32,7 @@ func findPowerShell() (string, error) {
 		return fullPath, nil
 	}
 
-	return "", fmt.Errorf("powershell.exe non trovato.\n" +
-		"Windows PowerShell è necessario per l'autenticazione SAML.")
+	return "", fmt.Errorf(msg.AuthPSNotFound)
 }
 
 // SAMLResponse captures the SAML response token using a WinForms embedded WebBrowser.
@@ -44,8 +45,8 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		return "", err
 	}
 
-	fmt.Println("[*] Apertura finestra di login SAML/MFA...")
-	fmt.Println("   Completa l'autenticazione nella finestra.")
+	fmt.Println(msg.AuthWindowOpening)
+	fmt.Println(msg.AuthCompleteInWindow)
 
 	script := buildPSScript(idpURL)
 
@@ -60,18 +61,18 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			stderr := strings.TrimSpace(string(exitErr.Stderr))
 			if stderr != "" {
-				return "", fmt.Errorf("autenticazione SAML fallita: %s", stderr)
+				return "", fmt.Errorf(msg.AuthSAMLFailed, stderr)
 			}
 		}
-		return "", fmt.Errorf("autenticazione SAML fallita: %w", err)
+		return "", fmt.Errorf(msg.AuthSAMLFailedW, err)
 	}
 
 	samlResponse := strings.TrimSpace(string(output))
 	if samlResponse == "" {
-		return "", fmt.Errorf("SAMLResponse vuota: login non completato o finestra chiusa")
+		return "", fmt.Errorf(msg.AuthSAMLEmpty)
 	}
 
-	fmt.Println("[+] Autenticazione completata")
+	fmt.Println(msg.AuthComplete)
 	return samlResponse, nil
 }
 
@@ -119,7 +120,7 @@ $web.add_Navigating({
 if ($Script:SAMLResponse) {
     Write-Output $Script:SAMLResponse
 } else {
-    Write-Error "SAMLResponse non catturata: login non completato?"
+    Write-Error "SAMLResponse not captured: login not completed?"
     exit 1
 }
 `

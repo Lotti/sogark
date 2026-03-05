@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,7 +59,7 @@ type Config struct {
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("impossibile determinare la home directory: %w", err)
+		return "", fmt.Errorf(msg.CfgErrHomeDir, err)
 	}
 	return filepath.Join(home, DirName), nil
 }
@@ -102,13 +103,13 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("configurazione non trovata: esegui 'sogark config init'")
+			return nil, fmt.Errorf(msg.CfgNotFound)
 		}
-		return nil, fmt.Errorf("errore lettura config: %w", err)
+		return nil, fmt.Errorf(msg.CfgReadErr, err)
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("errore parsing config: %w", err)
+		return nil, fmt.Errorf(msg.CfgParseErr, err)
 	}
 	return &cfg, nil
 }
@@ -120,16 +121,16 @@ func (c *Config) Save() error {
 		return err
 	}
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("errore creazione directory %s: %w", dir, err)
+		return fmt.Errorf(msg.CfgMkdirErr, dir, err)
 	}
 	path := filepath.Join(dir, FileName)
 
 	data, err := yaml.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("errore serializzazione config: %w", err)
+		return fmt.Errorf(msg.CfgSerializeErr, err)
 	}
 	if err := os.WriteFile(path, data, 0600); err != nil {
-		return fmt.Errorf("errore scrittura config: %w", err)
+		return fmt.Errorf(msg.CfgWriteErr, err)
 	}
 	return nil
 }
@@ -158,13 +159,13 @@ func (c *Config) Set(key, value string) error {
 	case "key_ttl_hours":
 		n, err := strconv.Atoi(value)
 		if err != nil || n <= 0 {
-			return fmt.Errorf("key_ttl_hours deve essere un numero intero positivo")
+			return fmt.Errorf(msg.CfgKeyTTLHoursErr)
 		}
 		c.KeyTTLHours = n
 	case "saml_timeout_minutes":
 		n, err := strconv.Atoi(value)
 		if err != nil || n <= 0 {
-			return fmt.Errorf("saml_timeout_minutes deve essere un numero intero positivo")
+			return fmt.Errorf(msg.CfgSAMLTimeoutErr)
 		}
 		c.SAMLTimeoutMinutes = n
 	case "moba_path":
@@ -172,7 +173,7 @@ func (c *Config) Set(key, value string) error {
 	case "moba_max_sessions":
 		n, err := strconv.Atoi(value)
 		if err != nil || n <= 0 {
-			return fmt.Errorf("moba_max_sessions deve essere un numero intero positivo")
+			return fmt.Errorf(msg.CfgMobaMaxErr)
 		}
 		c.MobaMaxSessions = n
 	case "tabby_path":
@@ -182,7 +183,7 @@ func (c *Config) Set(key, value string) error {
 	case "default_multi_backend":
 		valid := map[string]bool{"auto": true, "wezterm": true, "tabby": true, "wt": true, "tmux": true}
 		if !valid[value] {
-			return fmt.Errorf("backend non valido: %q (valori: auto, wezterm, tabby, wt, tmux)", value)
+			return fmt.Errorf(msg.CfgInvalidBackend, value)
 		}
 		c.DefaultMultiBackend = value
 	case "nexus_url":
@@ -190,7 +191,7 @@ func (c *Config) Set(key, value string) error {
 	case "nexus_repo":
 		c.NexusRepo = value
 	default:
-		return fmt.Errorf("chiave sconosciuta: %q\nChiavi valide: %s", key, strings.Join(ValidKeys, ", "))
+		return fmt.Errorf(msg.CfgUnknownKey, key, strings.Join(ValidKeys, ", "))
 	}
 	return nil
 }

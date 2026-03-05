@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/sogei/cyberark-cli/internal/config"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -22,17 +23,9 @@ func newUpdateCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update",
-		Short: "Aggiorna sogark all'ultima versione da Nexus",
-		Long: `Controlla la versione più recente disponibile sul repository Nexus
-e aggiorna il binario corrente se necessario.
-
-Richiede che nexus_url e nexus_repo siano configurati:
-  sogark config set nexus_url https://nexus.example.com
-  sogark config set nexus_repo sogark-releases`,
-		Example: `  sogark update              # aggiorna all'ultima versione
-  sogark update --check      # controlla senza aggiornare
-  sogark update --version v1.2.0  # installa versione specifica
-  sogark update --force      # forza re-download anche se aggiornato`,
+		Short: msg.UpdateShort,
+		Long:  msg.UpdateLong,
+		Example: msg.UpdateExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -40,32 +33,32 @@ Richiede che nexus_url e nexus_repo siano configurati:
 			}
 
 			if cfg.NexusURL == "" || cfg.NexusRepo == "" {
-				return fmt.Errorf("nexus_url e nexus_repo non configurati.\nEsegui:\n  sogark config set nexus_url https://nexus.example.com\n  sogark config set nexus_repo sogark-releases")
+				return fmt.Errorf(msg.UpdateErrNotConfigured)
 			}
 
 			baseURL := strings.TrimRight(cfg.NexusURL, "/") + "/repository/" + cfg.NexusRepo
 
 			// Determine target version
 			if targetVersion == "" {
-				fmt.Println("[*] Controllo ultima versione disponibile...")
+				fmt.Println(msg.UpdateCheckingVersion)
 				latest, err := fetchLatestVersion(baseURL)
 				if err != nil {
-					return fmt.Errorf("errore recupero versione: %w", err)
+					return fmt.Errorf(msg.UpdateErrFetchVersion, err)
 				}
 				targetVersion = latest
 			}
 
-			fmt.Printf("[*] Versione corrente: %s\n", version)
-			fmt.Printf("[*] Versione disponibile: %s\n", targetVersion)
+			fmt.Printf(msg.UpdateCurrentVersion, version)
+			fmt.Printf(msg.UpdateAvailableVersion, targetVersion)
 
 			if !force && targetVersion == version {
-				fmt.Println("[✓] Già aggiornato.")
+				fmt.Println(msg.UpdateAlreadyUpToDate)
 				return nil
 			}
 
 			if checkOnly {
 				if targetVersion != version {
-					fmt.Println("[!] Aggiornamento disponibile. Esegui 'sogark update' per aggiornare.")
+					fmt.Println(msg.UpdateAvailable)
 				}
 				return nil
 			}
@@ -83,41 +76,41 @@ Richiede che nexus_url e nexus_repo siano configurati:
 			// Download to temp file
 			execPath, err := os.Executable()
 			if err != nil {
-				return fmt.Errorf("impossibile determinare il percorso dell'eseguibile: %w", err)
+				return fmt.Errorf(msg.UpdateErrExecPath, err)
 			}
 			execPath, err = filepath.EvalSymlinks(execPath)
 			if err != nil {
-				return fmt.Errorf("impossibile risolvere symlink: %w", err)
+				return fmt.Errorf(msg.UpdateErrSymlink, err)
 			}
 
 			tmpPath := execPath + ".update"
 			if err := downloadFile(downloadURL, tmpPath); err != nil {
 				os.Remove(tmpPath)
-				return fmt.Errorf("errore download: %w", err)
+				return fmt.Errorf(msg.UpdateErrDownload, err)
 			}
 
 			// Make executable (no-op on Windows)
 			if runtime.GOOS != "windows" {
 				if err := os.Chmod(tmpPath, 0755); err != nil {
 					os.Remove(tmpPath)
-					return fmt.Errorf("errore chmod: %w", err)
+					return fmt.Errorf(msg.UpdateErrChmod, err)
 				}
 			}
 
 			// Replace current binary
 			if err := os.Rename(tmpPath, execPath); err != nil {
 				os.Remove(tmpPath)
-				return fmt.Errorf("errore sostituzione binario: %w", err)
+				return fmt.Errorf(msg.UpdateErrReplace, err)
 			}
 
-			fmt.Printf("[✓] Aggiornato a %s\n", targetVersion)
+			fmt.Printf(msg.UpdateSuccess, targetVersion)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&targetVersion, "version", "", "versione specifica da installare (es. v1.2.0)")
-	cmd.Flags().BoolVar(&force, "force", false, "forza il download anche se la versione è uguale")
-	cmd.Flags().BoolVar(&checkOnly, "check", false, "controlla senza aggiornare")
+	cmd.Flags().StringVar(&targetVersion, "version", "", msg.UpdateFlagVersion)
+	cmd.Flags().BoolVar(&force, "force", false, msg.UpdateFlagForce)
+	cmd.Flags().BoolVar(&checkOnly, "check", false, msg.UpdateFlagCheck)
 
 	return cmd
 }
@@ -131,7 +124,7 @@ func fetchLatestVersion(baseURL string) (string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP %d da %s/latest/version.txt", resp.StatusCode, baseURL)
+		return "", fmt.Errorf(msg.UpdateHTTPErrVersion, resp.StatusCode, baseURL)
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -160,7 +153,7 @@ func downloadFile(url, destPath string) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP %d da %s", resp.StatusCode, url)
+		return fmt.Errorf(msg.UpdateHTTPErr, resp.StatusCode, url)
 	}
 
 	out, err := os.Create(destPath)

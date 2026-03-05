@@ -9,6 +9,7 @@ import (
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
@@ -22,9 +23,8 @@ func newMobaCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "moba [host...]",
-		Short: "Apri sessioni SSH in MobaXterm",
-		Long: `Apre MobaXterm con un tab SSH per ogni host selezionato.
-Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
+		Short: msg.MobaShort,
+		Long:  msg.MobaLong,
 		Example: `  sogark moba #production
   sogark moba oper1@#web#prod
   sogark moba --tag webservers
@@ -67,7 +67,7 @@ Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
 			// Ensure valid key
 			valid, _, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if !valid {
-				fmt.Println("[!] Chiave scaduta o assente, avvio autenticazione...")
+				fmt.Println(msg.KeyExpired)
 				if err := doLogin(cfg); err != nil {
 					return err
 				}
@@ -80,9 +80,9 @@ Dopo l'apertura, attiva MultiExec per inviare comandi a tutti i tab.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
-	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
-	cmd.Flags().StringVar(&mobaPath, "moba-path", "", "percorso MobaXterm.exe")
+	cmd.Flags().StringVar(&tag, "tag", "", msg.MobaFlagTag)
+	cmd.Flags().StringVar(&anyTag, "any-tag", "", msg.MobaFlagAnyTag)
+	cmd.Flags().StringVar(&mobaPath, "moba-path", "", msg.MobaFlagPath)
 
 	return cmd
 }
@@ -101,8 +101,8 @@ func resolveMobaPath(flagPath string, cfg *config.Config) string {
 	}
 
 	// Interactive prompt
-	fmt.Println("[!] MobaXterm non trovato.")
-	fmt.Print("    Inserisci il percorso di MobaXterm.exe: ")
+	fmt.Println(msg.MobaNotFound)
+	fmt.Print(msg.MobaEnterPath)
 	reader := bufio.NewReader(os.Stdin)
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
@@ -112,16 +112,16 @@ func resolveMobaPath(flagPath string, cfg *config.Config) string {
 
 	// Validate the path exists
 	if _, err := os.Stat(input); err != nil {
-		fmt.Fprintf(os.Stderr, "[!] File non trovato: %s\n", input)
+		fmt.Fprintf(os.Stderr, msg.MobaFileNotFound, input)
 		return ""
 	}
 
 	// Save to config for future runs
 	cfg.MobaPath = input
 	if err := cfg.Save(); err != nil {
-		fmt.Fprintf(os.Stderr, "[!] Errore salvataggio config: %v\n", err)
+		fmt.Fprintf(os.Stderr, msg.MobaErrSavingConfig, err)
 	} else {
-		fmt.Printf("[+] Percorso salvato nella configurazione: %s\n", input)
+		fmt.Printf(msg.MobaPathSaved, input)
 	}
 
 	return input

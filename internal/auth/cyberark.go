@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // Client handles communication with the CyberArk PVWA REST API.
@@ -37,17 +39,17 @@ func (c *Client) Logon(samlResponse string) error {
 
 	resp, err := c.HTTPClient.PostForm(loginURL, form)
 	if err != nil {
-		return fmt.Errorf("logon fallito: %w", err)
+		return fmt.Errorf(msg.AuthLogonFailed, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("errore lettura risposta logon: %w", err)
+		return fmt.Errorf(msg.AuthLogonReadErr, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("logon fallito (HTTP %d): %s", resp.StatusCode, string(body))
+		return fmt.Errorf(msg.AuthLogonHTTPFailed, resp.StatusCode, string(body))
 	}
 
 	// The token is returned as a JSON string (quoted)
@@ -58,7 +60,7 @@ func (c *Client) Logon(samlResponse string) error {
 	}
 
 	if token == "" {
-		return fmt.Errorf("token di sessione non ricevuto")
+		return fmt.Errorf(msg.AuthTokenNotReceived)
 	}
 
 	c.Token = token
@@ -79,7 +81,7 @@ type sshKeysResponse struct {
 // FetchSSHKeys retrieves SSH keys from the MFA cache in the specified formats.
 func (c *Client) FetchSSHKeys(formats []string) (string, error) {
 	if c.Token == "" {
-		return "", fmt.Errorf("non autenticato: esegui prima il login")
+		return "", fmt.Errorf(msg.AuthNotAuthenticated)
 	}
 
 	keysURL := c.BaseURL + "/API/Users/Secret/SSHKeys/Cache"
@@ -87,29 +89,29 @@ func (c *Client) FetchSSHKeys(formats []string) (string, error) {
 	payload := map[string][]string{"formats": formats}
 	jsonBody, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("errore serializzazione richiesta: %w", err)
+		return "", fmt.Errorf(msg.AuthSerializeErr, err)
 	}
 
 	req, err := http.NewRequest("POST", keysURL, bytes.NewReader(jsonBody))
 	if err != nil {
-		return "", fmt.Errorf("errore creazione richiesta: %w", err)
+		return "", fmt.Errorf(msg.AuthCreateRequestErr, err)
 	}
 	req.Header.Set("Authorization", c.Token)
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("fetch chiavi fallito: %w", err)
+		return "", fmt.Errorf(msg.AuthKeyFetchFailed, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("errore lettura risposta chiavi: %w", err)
+		return "", fmt.Errorf(msg.AuthReadKeysErr, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("fetch chiavi fallito (HTTP %d): %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf(msg.AuthKeyFetchHTTPFailed, resp.StatusCode, string(body))
 	}
 
 	// The API returns JSON: {"value":[{"format":"OpenSSH","privateKey":"..."},...]}.

@@ -7,13 +7,14 @@ import (
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/hosts"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/spf13/cobra"
 )
 
 func newHostsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hosts",
-		Short: "Gestione registro macchine con tag",
+		Short: msg.HostsShort,
 	}
 
 	cmd.AddCommand(
@@ -53,7 +54,7 @@ func newHostsAddCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "add <name> <address>",
-		Short: "Registra un host con tag opzionali",
+		Short: msg.HostsAddShort,
 		Example: `  sogark hosts add web1 10.1.2.1 --tags webservers,production
   sogark hosts add db1 10.1.2.3 --user admin --tags databases
   sogark hosts add web1 10.1.2.1 --putty`,
@@ -85,20 +86,20 @@ func newHostsAddCmd() *cobra.Command {
 			keyDir, _ := cfg.ResolveKeyDir()
 			keyPath := filepath.Join(keyDir, cfg.SSHKeyName)
 			if err := hosts.UpdateSSHConfig(h, cfg.Username, cfg.ProxyHost, keyPath); err != nil {
-				fmt.Printf("[!] Aggiornamento ~/.ssh/config fallito: %v\n", err)
+				fmt.Printf(msg.HostsAddSSHConfigErr, err)
 			}
 
 			// PuTTY session (Windows only)
 			if putty {
 				_, ppkName, _ := keyFilePaths(keyDir, cfg.SSHKeyName)
 				if err := hosts.UpdatePuTTYSession(h, cfg.Username, cfg.ProxyHost, ppkName); err != nil {
-					fmt.Printf("[!] Sessione PuTTY: %v\n", err)
+					fmt.Printf(msg.HostsAddPuTTYErr, err)
 				} else {
-					fmt.Printf("[+] Sessione PuTTY creata: %s\n", name)
+					fmt.Printf(msg.HostsAddPuTTYSuccess, name)
 				}
 			}
 
-			fmt.Printf("[+] Host aggiunto: %s (%s)\n", name, address)
+			fmt.Printf(msg.HostsAdded, name, address)
 			if len(tagList) > 0 {
 				fmt.Printf("  Tag: %s\n", strings.Join(tagList, ", "))
 			}
@@ -106,9 +107,9 @@ func newHostsAddCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&user, "user", "u", "", "utente target (default: dalla config)")
-	cmd.Flags().StringVar(&tags, "tags", "", "tag separati da virgola")
-	cmd.Flags().BoolVar(&putty, "putty", false, "crea anche sessione PuTTY (solo Windows)")
+	cmd.Flags().StringVarP(&user, "user", "u", "", msg.HostsAddFlagUser)
+	cmd.Flags().StringVar(&tags, "tags", "", msg.HostsAddFlagTags)
+	cmd.Flags().BoolVar(&putty, "putty", false, msg.HostsAddFlagPutty)
 
 	return cmd
 }
@@ -121,7 +122,7 @@ func newHostsListCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Lista host registrati (filtro per tag)",
+		Short: msg.HostsListShort,
 		Example: `  sogark hosts list
   sogark hosts list --tag production
   sogark hosts list --tag webservers,rome
@@ -143,7 +144,7 @@ func newHostsListCmd() *cobra.Command {
 			}
 
 			if len(hostList) == 0 {
-				fmt.Println("Nessun host trovato.")
+				fmt.Println(msg.HostsListNoneFound)
 				return nil
 			}
 
@@ -158,14 +159,14 @@ func newHostsListCmd() *cobra.Command {
 				}
 				fmt.Printf("  %-15s %s%s%s\n", h.Name, userStr, h.Address, tagsStr)
 			}
-			fmt.Printf("\n%d host\n", len(hostList))
+			fmt.Printf(msg.HostsListCount, len(hostList))
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND: tutti i tag devono corrispondere)")
-	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR: almeno un tag)")
+	cmd.Flags().StringVar(&tag, "tag", "", msg.HostsListFlagTag)
+	cmd.Flags().StringVar(&anyTag, "any-tag", "", msg.HostsListFlagAnyTag)
 
 	return cmd
 }
@@ -173,7 +174,7 @@ func newHostsListCmd() *cobra.Command {
 func newHostsRemoveCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove <name>",
-		Short: "Rimuovi un host dal registro",
+		Short: msg.HostsRemoveShort,
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reg, _, err := loadRegistry()
@@ -194,7 +195,7 @@ func newHostsRemoveCmd() *cobra.Command {
 			// Clean up PuTTY session (best effort)
 			_ = hosts.RemovePuTTYSession(name)
 
-			fmt.Printf("[+] Host rimosso: %s\n", name)
+			fmt.Printf(msg.HostsRemoved, name)
 			return nil
 		},
 	}
@@ -208,7 +209,7 @@ func newHostsTagCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "tag <name>",
-		Short: "Gestisci i tag di un host",
+		Short: msg.HostsTagShort,
 		Example: `  sogark hosts tag web1 --add production,rome
   sogark hosts tag web1 --remove staging`,
 		Args: cobra.ExactArgs(1),
@@ -241,8 +242,8 @@ func newHostsTagCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&addTags, "add", "", "tag da aggiungere")
-	cmd.Flags().StringVar(&removeTags, "remove", "", "tag da rimuovere")
+	cmd.Flags().StringVar(&addTags, "add", "", msg.HostsTagFlagAdd)
+	cmd.Flags().StringVar(&removeTags, "remove", "", msg.HostsTagFlagRemove)
 
 	return cmd
 }
@@ -263,9 +264,8 @@ func newHostsImportMobaCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "import-moba <file.mxtsessions>",
-		Short: "Importa sessioni SSH da un export MobaXterm",
-		Long: `Legge un file .mxtsessions esportato da MobaXterm e importa le sessioni SSH
-nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
+		Short: msg.HostsImportMobaShort,
+		Long:  msg.HostsImportMobaLong,
 		Example: `  sogark hosts import-moba sessions.mxtsessions
   sogark hosts import-moba --tag production sessions.mxtsessions
   sogark hosts import-moba --no-user sessions.mxtsessions
@@ -278,12 +278,12 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 			}
 
 			if len(sessions) == 0 {
-				fmt.Println("[i] Nessuna sessione SSH trovata nel file.")
+				fmt.Println(msg.HostsImportMobaNoSessions)
 				return nil
 			}
 
 			if dryRun {
-				fmt.Printf("[i] Anteprima: %d sessioni SSH trovate\n", len(sessions))
+				fmt.Printf(msg.HostsImportMobaPreview, len(sessions))
 				for _, s := range sessions {
 					tags := s.Tags
 					if extraTag != "" {
@@ -295,9 +295,9 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 					}
 					user := s.User
 					if noUser {
-						user = "(ignorato)"
+						user = msg.HostsImportMobaUserIgnored
 					} else if user == "" {
-						user = "(default)"
+						user = msg.HostsImportMobaUserDefault
 					}
 					fmt.Printf("    %-20s %s (user: %s)%s\n", s.Name, s.Address, user, tagStr)
 				}
@@ -324,17 +324,17 @@ nel registro sogark. Le cartelle MobaXterm vengono convertite in tag.`,
 			}
 
 			if err := reg.Save(); err != nil {
-				return fmt.Errorf("errore salvataggio registro: %w", err)
+				return fmt.Errorf(msg.HostsImportMobaErrSave, err)
 			}
 
-			fmt.Printf("[+] Importati %d host da MobaXterm\n", imported)
+			fmt.Printf(msg.HostsImportMobaSuccess, imported)
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&extraTag, "tag", "", "tag aggiuntivo da applicare a tutti gli host importati")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "mostra anteprima senza importare")
-	cmd.Flags().BoolVar(&noUser, "no-user", false, "ignora l'utente delle sessioni MobaXterm (usa default_ssh_user da config)")
+	cmd.Flags().StringVar(&extraTag, "tag", "", msg.HostsImportMobaFlagTag)
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, msg.HostsImportMobaFlagDryRun)
+	cmd.Flags().BoolVar(&noUser, "no-user", false, msg.HostsImportMobaFlagNoUser)
 
 	return cmd
 }
@@ -350,10 +350,8 @@ func newHostsSearchCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "search [pattern]",
-		Short: "Cerca host nel registro per nome, IP o tag",
-		Long: `Cerca host nel registro. Supporta wildcard (* e ?) per nome e IP.
-I criteri vengono combinati in AND.
-Con --add-tag e/o --remove-tag modifica i tag degli host trovati.`,
+		Short: msg.HostsSearchShort,
+		Long:  msg.HostsSearchLong,
 		Example: `  sogark hosts search                        # tutti gli host
   sogark hosts search "web*"                 # nomi che iniziano con "web"
   sogark hosts search --name "*db*"
@@ -381,7 +379,7 @@ Con --add-tag e/o --remove-tag modifica i tag degli host trovati.`,
 			results := reg.Search(namePattern, ipPattern, tagList)
 
 			if len(results) == 0 {
-				fmt.Println("[i] Nessun host trovato.")
+				fmt.Println(msg.HostsSearchNoneFound)
 				return nil
 			}
 
@@ -399,14 +397,14 @@ Con --add-tag e/o --remove-tag modifica i tag degli host trovati.`,
 					}
 				}
 				if err := reg.Save(); err != nil {
-					return fmt.Errorf("errore salvataggio registro: %w", err)
+					return fmt.Errorf(msg.HostsSearchErrSave, err)
 				}
-				fmt.Printf("[+] Tag aggiornati su %d host\n", len(results))
+				fmt.Printf(msg.HostsSearchTagsUpdated, len(results))
 				// Re-read updated hosts for display
 				results = reg.Search(namePattern, ipPattern, tagList)
 			}
 
-			fmt.Printf("%-20s %-20s %-15s %s\n", "NOME", "INDIRIZZO", "UTENTE", "TAG")
+			fmt.Printf("%-20s %-20s %-15s %s\n", "NAME", "ADDRESS", "USER", "TAG")
 			fmt.Println(strings.Repeat("─", 70))
 			for _, h := range results {
 				user := h.User
@@ -419,16 +417,16 @@ Con --add-tag e/o --remove-tag modifica i tag degli host trovati.`,
 				}
 				fmt.Printf("%-20s %-20s %-15s %s\n", h.Name, h.Address, user, tags)
 			}
-			fmt.Printf("\n%d host trovati\n", len(results))
+			fmt.Printf(msg.HostsSearchCount, len(results))
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVar(&namePattern, "name", "", "filtro per nome (supporta wildcard * e ?)")
-	cmd.Flags().StringVar(&ipPattern, "ip", "", "filtro per indirizzo IP (supporta wildcard * e ?)")
-	cmd.Flags().StringVar(&tagFilter, "tag", "", "filtro per tag (AND, separati da virgola)")
-	cmd.Flags().StringVar(&addTags, "add-tag", "", "aggiunge tag agli host trovati")
-	cmd.Flags().StringVar(&removeTags, "remove-tag", "", "rimuove tag dagli host trovati")
+	cmd.Flags().StringVar(&namePattern, "name", "", msg.HostsSearchFlagName)
+	cmd.Flags().StringVar(&ipPattern, "ip", "", msg.HostsSearchFlagIP)
+	cmd.Flags().StringVar(&tagFilter, "tag", "", msg.HostsSearchFlagTag)
+	cmd.Flags().StringVar(&addTags, "add-tag", "", msg.HostsSearchFlagAddTag)
+	cmd.Flags().StringVar(&removeTags, "remove-tag", "", msg.HostsSearchFlagRemoveTag)
 
 	return cmd
 }

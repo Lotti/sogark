@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"gopkg.in/yaml.v3"
 )
 
@@ -46,11 +47,11 @@ func NewRegistry(sogarkDir string) (*Registry, error) {
 		if os.IsNotExist(err) {
 			return r, nil
 		}
-		return nil, fmt.Errorf("errore lettura %s: %w", r.filePath, err)
+		return nil, fmt.Errorf(msg.RegReadErr, r.filePath, err)
 	}
 
 	if err := yaml.Unmarshal(data, &r.file); err != nil {
-		return nil, fmt.Errorf("errore parsing %s: %w", r.filePath, err)
+		return nil, fmt.Errorf(msg.RegParseErr, r.filePath, err)
 	}
 	if r.file.Hosts == nil {
 		r.file.Hosts = make(map[string]*Host)
@@ -114,7 +115,7 @@ func (r *Registry) Add(name, address, user string, tags []string) {
 // Remove deletes a host by name.
 func (r *Registry) Remove(name string) error {
 	if _, exists := r.file.Hosts[name]; !exists {
-		return fmt.Errorf("host %q non trovato", name)
+		return fmt.Errorf(msg.RegNotFound, name)
 	}
 	delete(r.file.Hosts, name)
 	r.rebuildIndex()
@@ -131,7 +132,7 @@ func (r *Registry) Get(name string) (*Host, bool) {
 func (r *Registry) AddTags(name string, tags []string) error {
 	h, ok := r.file.Hosts[name]
 	if !ok {
-		return fmt.Errorf("host %q non trovato", name)
+		return fmt.Errorf(msg.RegNotFound, name)
 	}
 	existing := makeStringSet(h.Tags)
 	for _, t := range tags {
@@ -150,7 +151,7 @@ func (r *Registry) AddTags(name string, tags []string) error {
 func (r *Registry) RemoveTags(name string, tags []string) error {
 	h, ok := r.file.Hosts[name]
 	if !ok {
-		return fmt.Errorf("host %q non trovato", name)
+		return fmt.Errorf(msg.RegNotFound, name)
 	}
 	toRemove := makeStringSet(tags)
 	var remaining []string

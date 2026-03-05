@@ -60,8 +60,8 @@ func TestRunMulti_EmptyHosts(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty hosts")
 	}
-	if !strings.Contains(err.Error(), "nessun host") {
-		t.Errorf("got %q, want error containing 'nessun host'", err.Error())
+	if !strings.Contains(err.Error(), "no hosts") {
+		t.Errorf("got %q, want error containing 'no hosts'", err.Error())
 	}
 }
 
@@ -73,8 +73,8 @@ func TestRunMulti_UnsupportedBackend(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unsupported backend")
 	}
-	if !strings.Contains(err.Error(), "non supportato") {
-		t.Errorf("got %q, want error containing 'non supportato'", err.Error())
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("got %q, want error containing 'not supported'", err.Error())
 	}
 }
 
@@ -83,7 +83,7 @@ func TestRunMoba_EmptyHosts(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for empty hosts")
 	}
-	if !strings.Contains(err.Error(), "nessun host") {
-		t.Errorf("got %q, want error containing 'nessun host'", err.Error())
+	if !strings.Contains(err.Error(), "no hosts") {
+		t.Errorf("got %q, want error containing 'no hosts'", err.Error())
 	}
 }

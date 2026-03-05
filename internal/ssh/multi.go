@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // MultiArgs holds parameters for a multi-pane session.
@@ -30,7 +32,7 @@ type HostTarget struct {
 // RunMulti opens a multi-pane session using the best available backend.
 func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 	if len(args.Hosts) == 0 {
-		return fmt.Errorf("nessun host specificato")
+		return fmt.Errorf(msg.SSHNoHosts)
 	}
 
 	backend := args.Backend
@@ -47,7 +49,7 @@ func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 			tabbyBin = FindTabby()
 		}
 		if tabbyBin == "" {
-			return fmt.Errorf("Tabby non trovato. Usa 'sogark config set tabby_path /path/to/tabby'")
+			return fmt.Errorf(msg.SSHTabbyNotFound)
 		}
 		return RunTabby(args.Hosts, username, proxyHost, keyPath, tabbyBin)
 	case "wt":
@@ -55,7 +57,7 @@ func RunMulti(args *MultiArgs, username, proxyHost, keyPath string) error {
 	case "tmux":
 		return runMultiTmux(args, username, proxyHost, keyPath)
 	default:
-		return fmt.Errorf("backend %q non supportato (usa 'wezterm', 'tabby', 'wt' o 'tmux')", backend)
+		return fmt.Errorf(msg.SSHBackendNotSupported, backend)
 	}
 }
 
@@ -88,9 +90,7 @@ func detectMultiBackend() string {
 // runMultiTmux opens a tmux session with synchronized panes for each host.
 func runMultiTmux(args *MultiArgs, username, proxyHost, keyPath string) error {
 	if _, err := exec.LookPath("tmux"); err != nil {
-		return fmt.Errorf("tmux non trovato. Installalo con:\n" +
-			"  macOS:  brew install tmux\n" +
-			"  Linux:  sudo apt install tmux")
+		return fmt.Errorf(msg.SSHTmuxNotFound)
 	}
 
 	sessionName := args.SessionName
@@ -105,7 +105,7 @@ func runMultiTmux(args *MultiArgs, username, proxyHost, keyPath string) error {
 	cmd := exec.Command("tmux", "new-session", "-d", "-s", sessionName, sshCmd)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("errore creazione sessione tmux: %w", err)
+		return fmt.Errorf(msg.SSHTmuxCreateErr, err)
 	}
 
 	// Add remaining hosts as split panes
@@ -114,7 +114,7 @@ func runMultiTmux(args *MultiArgs, username, proxyHost, keyPath string) error {
 		cmd = exec.Command("tmux", "split-window", "-t", sessionName, sshCmd)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("errore aggiunta pane per %s: %w", h.Name, err)
+			return fmt.Errorf(msg.SSHTmuxAddPaneErr, h.Name, err)
 		}
 		// Re-tile to keep panes evenly distributed
 		exec.Command("tmux", "select-layout", "-t", sessionName, "tiled").Run()
@@ -149,7 +149,7 @@ func buildSogarkSSHArgs(targetUser, host string) []string {
 func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
 	wtExe, err := exec.LookPath("wt.exe")
 	if err != nil {
-		return fmt.Errorf("wt.exe non trovato. Installa Windows Terminal dal Microsoft Store")
+		return fmt.Errorf(msg.SSHWTNotFound)
 	}
 
 	sogarkExe, _ := os.Executable()
@@ -173,13 +173,13 @@ func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
 			sogarkExe, "ssh", h.TargetUser+"@"+h.Address)
 	}
 
-	fmt.Printf("[+] Apertura Windows Terminal con %d pane...\n", len(args.Hosts))
+	fmt.Printf(msg.SSHWTOpening, len(args.Hosts))
 	for _, h := range args.Hosts {
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 	}
 	if args.Sync {
-		fmt.Println("[!] Windows Terminal non supporta input sincronizzato.")
-		fmt.Println("    Per sync usa tmux (es. via WSL): sogark multi --backend tmux ...")
+		fmt.Println(msg.SSHWTNoSync)
+		fmt.Println(msg.SSHWTSyncHint)
 	}
 
 	cmd := exec.Command(wtExe, wtArgs...)
@@ -194,17 +194,17 @@ func runMultiWT(args *MultiArgs, username, proxyHost, keyPath string) error {
 // Layout: SSH panes in a grid on top, broadcaster strip at bottom.
 func runMultiWezTerm(args *MultiArgs, username, proxyHost, keyPath string) error {
 	if os.Getenv("TERM_PROGRAM") != "WezTerm" {
-		return fmt.Errorf("backend wezterm richiede di essere dentro WezTerm")
+		return fmt.Errorf(msg.SSHWeztermRequires)
 	}
 
 	n := len(args.Hosts)
 	if n > 8 {
-		return fmt.Errorf("max 8 host per sessione WezTerm (hai %d). Dividi in batch più piccoli", n)
+		return fmt.Errorf(msg.SSHWeztermMaxHosts, n)
 	}
 
 	weztermBin, err := exec.LookPath("wezterm")
 	if err != nil {
-		return fmt.Errorf("wezterm CLI non trovato nel PATH")
+		return fmt.Errorf(msg.SSHWeztermCLINotFound)
 	}
 
 	sogarkExe, _ := os.Executable()
@@ -215,7 +215,7 @@ func runMultiWezTerm(args *MultiArgs, username, proxyHost, keyPath string) error
 		sogarkExe, "ssh", firstHost.TargetUser + "@" + firstHost.Address}
 	out, err := exec.Command(weztermBin, firstArgs...).Output()
 	if err != nil {
-		return fmt.Errorf("errore split-pane per %s: %w", firstHost.Name, err)
+		return fmt.Errorf(msg.SSHWeztermSplitErr, firstHost.Name, err)
 	}
 	firstPaneID := strings.TrimSpace(string(out))
 	paneIDs := []string{firstPaneID}
@@ -242,7 +242,7 @@ func runMultiWezTerm(args *MultiArgs, username, proxyHost, keyPath string) error
 				sogarkExe, "ssh", bottomRow[0].TargetUser + "@" + bottomRow[0].Address}
 			out, err := exec.Command(weztermBin, bottomFirstArgs...).Output()
 			if err != nil {
-				return fmt.Errorf("errore split-pane riga 2: %w", err)
+				return fmt.Errorf(msg.SSHWeztermSplitRow2Err, err)
 			}
 			bottomFirstPaneID := strings.TrimSpace(string(out))
 
@@ -261,13 +261,13 @@ func runMultiWezTerm(args *MultiArgs, username, proxyHost, keyPath string) error
 		exec.Command(weztermBin, "cli", "activate-pane", "--pane-id", broadcasterPaneID).Run()
 	}
 
-	fmt.Printf("[+] WezTerm: %d pane SSH aperti\n", n)
+	fmt.Printf(msg.SSHWeztermOpened, n)
 	for _, h := range args.Hosts {
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 	}
 
 	if !args.Sync {
-		fmt.Println("[i] Input non sincronizzato (--no-sync)")
+		fmt.Println(msg.SSHWeztermNoSync)
 		return nil
 	}
 
@@ -294,7 +294,7 @@ func weztermSplitRow(weztermBin, sogarkExe, parentPaneID string, hosts []HostTar
 			sogarkExe, "ssh", hosts[i].TargetUser + "@" + hosts[i].Address}
 		out, err := exec.Command(weztermBin, splitArgs...).Output()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Errore split-pane per %s: %v\n", hosts[i].Name, err)
+			fmt.Fprintf(os.Stderr, msg.SSHWeztermSplitErrFmt, hosts[i].Name, err)
 			continue
 		}
 		newPaneID := strings.TrimSpace(string(out))
@@ -307,7 +307,7 @@ func weztermSplitRow(weztermBin, sogarkExe, parentPaneID string, hosts []HostTar
 // weztermBroadcastLoop reads lines from stdin and sends them to all panes.
 // Exits when Ctrl+D is pressed or all SSH panes are closed.
 func weztermBroadcastLoop(weztermBin string, paneIDs []string) error {
-	fmt.Println("[+] Broadcast attivo. Digita comandi (Ctrl+D per uscire):")
+	fmt.Println(msg.SSHBroadcastActive)
 	fmt.Println()
 
 	// Start a goroutine that monitors pane liveness
@@ -337,7 +337,7 @@ func weztermBroadcastLoop(weztermBin string, paneIDs []string) error {
 		select {
 		case line, ok := <-lineCh:
 			if !ok {
-				fmt.Println("\n[+] Broadcast terminato.")
+				fmt.Println(msg.SSHBroadcastEnded)
 				return nil
 			}
 			if line == "" {
@@ -346,10 +346,10 @@ func weztermBroadcastLoop(weztermBin string, paneIDs []string) error {
 				weztermSendText(weztermBin, paneIDs, line+"\n")
 			}
 		case <-eofCh:
-			fmt.Println("\n[+] Broadcast terminato.")
+			fmt.Println(msg.SSHBroadcastEnded)
 			return nil
 		case <-done:
-			fmt.Println("\n[+] Tutti i pane SSH chiusi. Broadcast terminato.")
+			fmt.Println(msg.SSHAllPanesClosed)
 			return nil
 		}
 	}
@@ -393,35 +393,34 @@ func weztermAnyPaneAlive(weztermBin string, paneIDs []string) bool {
 // maxSessions limits the number of tabs opened (0 = use default of 20).
 func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, maxSessions int) error {
 	if len(hosts) == 0 {
-		return fmt.Errorf("nessun host specificato")
+		return fmt.Errorf(msg.SSHNoHosts)
 	}
 
 	if mobaPath == "" {
-		return fmt.Errorf("MobaXterm non trovato")
+		return fmt.Errorf(msg.SSHMobaNotFound)
 	}
 
 	if maxSessions <= 0 {
 		maxSessions = 20
 	}
 	if len(hosts) > maxSessions {
-		fmt.Fprintf(os.Stderr, "[!] Troppi host (%d), limite sessioni MobaXterm: %d. Verranno aperte solo le prime %d sessioni.\n",
-			len(hosts), maxSessions, maxSessions)
+		fmt.Fprintf(os.Stderr, msg.SSHMobaTooManyHosts, len(hosts), maxSessions, maxSessions)
 		hosts = hosts[:maxSessions]
 	}
 
 	// If MobaXterm is not already running, start it bare and wait for it to initialize
 	if !isMobaXtermRunning() {
-		fmt.Println("[*] MobaXterm non in esecuzione, avvio in corso...")
+		fmt.Println(msg.SSHMobaNotRunning)
 		bare := exec.Command(mobaPath)
 		bare.Stderr = os.Stderr
 		if err := bare.Start(); err != nil {
-			return fmt.Errorf("errore avvio MobaXterm: %w", err)
+			return fmt.Errorf(msg.SSHMobaStartErr, err)
 		}
-		fmt.Println("[*] Attendo inizializzazione MobaXterm (10s)...")
+		fmt.Println(msg.SSHMobaWaiting)
 		time.Sleep(10 * time.Second)
 	}
 
-	fmt.Printf("[+] Apertura MobaXterm con %d tab...\n", len(hosts))
+	fmt.Printf(msg.SSHMobaOpening, len(hosts))
 	for i, h := range hosts {
 		// MobaXterm's embedded SSH interprets backslashes as escape chars,
 		// so convert Windows paths to forward slashes
@@ -433,15 +432,14 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 		cmd := exec.Command(mobaPath, "-newtab", sshCmd)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
+			fmt.Fprintf(os.Stderr, msg.SSHMobaTabErr, h.Name, err)
 		}
-		// Wait between tab launches (both cold and warm start)
 		if i < len(hosts)-1 {
 			time.Sleep(5 * time.Second)
 		}
 	}
 
-	fmt.Println("\n[i] Per attivare MultiExec: click destro su un tab → Multi-execution")
+	fmt.Println(msg.SSHMobaMultiExec)
 	return nil
 }
 
@@ -528,13 +526,13 @@ func FindTabby() string {
 // RunTabby opens Tabby terminal with one SSH tab per host.
 func RunTabby(hosts []HostTarget, username, proxyHost, keyPath, tabbyPath string) error {
 	if len(hosts) == 0 {
-		return fmt.Errorf("nessun host specificato")
+		return fmt.Errorf(msg.SSHNoHosts)
 	}
 	if tabbyPath == "" {
-		return fmt.Errorf("Tabby non trovato")
+		return fmt.Errorf(msg.SSHTabbyNotFoundSimple)
 	}
 
-	fmt.Printf("[+] Apertura Tabby con %d tab...\n", len(hosts))
+	fmt.Printf(msg.SSHTabbyOpening, len(hosts))
 	for i, h := range hosts {
 		sshUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
 		// Tabby supports opening SSH via URL scheme: tabby open ssh://user@host
@@ -544,7 +542,7 @@ func RunTabby(hosts []HostTarget, username, proxyHost, keyPath, tabbyPath string
 		cmd := exec.Command(tabbyPath, "open", sshURL)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Errore apertura tab per %s: %v\n", h.Name, err)
+			fmt.Fprintf(os.Stderr, msg.SSHTabbyTabErr, h.Name, err)
 		}
 		if i < len(hosts)-1 {
 			time.Sleep(1 * time.Second)
@@ -584,13 +582,13 @@ func FindWinSCP() string {
 // keyPath should be a .ppk file (PuTTY format) for best WinSCP compatibility.
 func RunWinSCP(hosts []HostTarget, username, proxyHost, keyPath, winscpPath string) error {
 	if len(hosts) == 0 {
-		return fmt.Errorf("nessun host specificato")
+		return fmt.Errorf(msg.SSHNoHosts)
 	}
 	if winscpPath == "" {
-		return fmt.Errorf("WinSCP non trovato")
+		return fmt.Errorf(msg.SSHWinSCPNotFound)
 	}
 
-	fmt.Printf("[+] Apertura WinSCP con %d sessioni...\n", len(hosts))
+	fmt.Printf(msg.SSHWinSCPOpening, len(hosts))
 	for i, h := range hosts {
 		// WinSCP connection string: scp://user@host/ with private key
 		scpUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
@@ -616,7 +614,7 @@ func RunWinSCP(hosts []HostTarget, username, proxyHost, keyPath, winscpPath stri
 		cmd := exec.Command(winscpPath, args...)
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			fmt.Fprintf(os.Stderr, "[!] Errore apertura sessione per %s: %v\n", h.Name, err)
+			fmt.Fprintf(os.Stderr, msg.SSHWinSCPSessionErr, h.Name, err)
 		}
 		if i < len(hosts)-1 {
 			time.Sleep(2 * time.Second)

@@ -8,6 +8,7 @@ import (
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/hosts"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
@@ -22,11 +23,8 @@ func newMultiCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "multi [host...]",
-		Short: "Sessioni SSH parallele con pane sincronizzati",
-		Long: `Apre una sessione multi-pane con un pane per ogni host.
-Backend auto-detect: WezTerm (con input sync) > Windows Terminal > tmux.
-Se eseguito dentro WezTerm, usa il backend wezterm con broadcast automatico.
-Usa --backend per forzare un backend specifico.`,
+		Short: msg.MultiShort,
+		Long:  msg.MultiLong,
 		Example: `  sogark multi --tag production
   sogark multi #production
   sogark multi oper1@#web#prod
@@ -73,7 +71,7 @@ Usa --backend per forzare un backend specifico.`,
 			// Ensure valid key
 			valid, _, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if !valid {
-				fmt.Println("[!] Chiave scaduta o assente, avvio autenticazione...")
+				fmt.Println(msg.KeyExpired)
 				if err := doLogin(cfg); err != nil {
 					return err
 				}
@@ -90,10 +88,10 @@ Usa --backend per forzare un backend specifico.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
-	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
-	cmd.Flags().BoolVar(&noSync, "no-sync", false, "non sincronizzare l'input tra i pane (solo tmux)")
-	cmd.Flags().StringVar(&backend, "backend", "auto", "backend multi-pane: auto, wezterm, tabby, wt, tmux")
+	cmd.Flags().StringVar(&tag, "tag", "", msg.MultiFlagTag)
+	cmd.Flags().StringVar(&anyTag, "any-tag", "", msg.MultiFlagAnyTag)
+	cmd.Flags().BoolVar(&noSync, "no-sync", false, msg.MultiFlagNoSync)
+	cmd.Flags().StringVar(&backend, "backend", "auto", msg.MultiFlagBackend)
 
 	return cmd
 }
@@ -126,11 +124,11 @@ func resolveTargets(cfg *config.Config, args []string, tag, anyTag string) ([]ss
 			}
 		}
 	default:
-		return nil, fmt.Errorf("specifica host o tag (--tag / --any-tag)")
+		return nil, fmt.Errorf(msg.MultiErrNoHostOrTag)
 	}
 
 	if len(hostList) == 0 {
-		return nil, fmt.Errorf("nessun host trovato")
+		return nil, fmt.Errorf(msg.MultiErrNoHostsFound)
 	}
 
 	targets := make([]sshpkg.HostTarget, len(hostList))
@@ -146,7 +144,7 @@ func resolveTargets(cfg *config.Config, args []string, tag, anyTag string) ([]ss
 		}
 	}
 
-	fmt.Printf("Host selezionati: %s\n", formatHostNames(targets))
+	fmt.Printf(msg.MultiSelectedHosts, formatHostNames(targets))
 	return targets, nil
 }
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
@@ -19,10 +20,8 @@ func newWinSCPCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "winscp [host...]",
-		Short: "Apre sessioni SCP/SFTP in WinSCP (Windows)",
-		Long: `Apre WinSCP con una sessione per ogni host, usando il formato PSMP CyberArk.
-Supporta auto-detect di WinSCP nelle directory standard.
-Usa --winscp-path per specificare manualmente il percorso.`,
+		Short: msg.WinSCPShort,
+		Long:  msg.WinSCPLong,
 		Example: `  sogark winscp 10.1.2.3
   sogark winscp myserver
   sogark winscp --tag production
@@ -47,7 +46,7 @@ Usa --winscp-path per specificare manualmente il percorso.`,
 			// Ensure valid key
 			valid, _, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if !valid {
-				fmt.Println("[!] Chiave scaduta o assente, avvio autenticazione...")
+				fmt.Println(msg.KeyExpired)
 				if err := doLogin(cfg); err != nil {
 					return err
 				}
@@ -65,9 +64,9 @@ Usa --winscp-path per specificare manualmente il percorso.`,
 		},
 	}
 
-	cmd.Flags().StringVar(&tag, "tag", "", "filtra per tag (AND)")
-	cmd.Flags().StringVar(&anyTag, "any-tag", "", "filtra per tag (OR)")
-	cmd.Flags().StringVar(&winscpPath, "winscp-path", "", "percorso manuale di WinSCP.exe")
+	cmd.Flags().StringVar(&tag, "tag", "", msg.WinSCPFlagTag)
+	cmd.Flags().StringVar(&anyTag, "any-tag", "", msg.WinSCPFlagAnyTag)
+	cmd.Flags().StringVar(&winscpPath, "winscp-path", "", msg.WinSCPFlagPath)
 
 	return cmd
 }
@@ -83,10 +82,5 @@ func resolveWinSCPPath(flagPath string, cfg *config.Config) (string, error) {
 	if p := sshpkg.FindWinSCP(); p != "" {
 		return p, nil
 	}
-	return "", fmt.Errorf(
-		"WinSCP non trovato.\n" +
-			"Imposta il percorso con:\n" +
-			"  sogark config set winscp_path \"C:\\WinSCP\\WinSCP.exe\"\n" +
-			"oppure usa --winscp-path",
-	)
+	return "", fmt.Errorf(msg.WinSCPNotFound)
 }

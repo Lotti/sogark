@@ -9,6 +9,7 @@ import (
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/hosts"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
@@ -16,49 +17,9 @@ import (
 func newScpCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "scp [sogark-flags] source... target",
-		Short: "Trasferimento file via SCP attraverso PSMP",
-		Long: `Wrapper trasparente per scp: sogark inietta la chiave SSH (-i) e traduce i path remoti nel formato PSMP.
-
-I path remoti (host:path o user@host:path) vengono riscritti automaticamente:
-  host:/path  →  corp@target@host@psmp:/path
-
-Flag sogark (--dry-run, --force-login, -u, --key-format, --tag, --any-tag) devono precedere i flag scp.
-Tutti gli altri flag vengono passati direttamente a scp.
-
-Se la chiave SSH è scaduta, viene eseguita l'autenticazione automatica.
-
-Modalità batch con --tag/--any-tag: invia file a tutti gli host del tag.
-Usare ":/path" per indicare il percorso remoto su ogni host.`,
-		Example: `  # Upload file
-  sogark scp file.txt 10.1.2.3:/tmp/
-
-  # Upload con tag inline
-  sogark scp file.txt #webservers:/tmp/
-  sogark scp file.txt oper1@#web#prod:/tmp/
-
-  # Download con tag inline (crea sottocartelle per host)
-  sogark scp #webservers:/etc/hosts ./configs/
-
-  # Upload a tutti gli host con flag --tag
-  sogark scp --tag webservers file.txt :/tmp/
-
-  # Upload directory a tag multipli (OR)
-  sogark scp --any-tag web,app -r ./deploy :/opt/app/
-
-  # Upload directory
-  sogark scp -r ./mydir 10.1.2.3:/opt/
-
-  # Download file
-  sogark scp 10.1.2.3:/etc/hosts ./
-
-  # Con utente target specifico
-  sogark scp file.txt admin@10.1.2.3:/tmp/
-
-  # Con flag scp nativi (compressione, verbose, porta)
-  sogark scp -C -v -P 2222 file.txt 10.1.2.3:/tmp/
-
-  # Dry run (mostra comando senza eseguirlo)
-  sogark scp --dry-run file.txt 10.1.2.3:/tmp/`,
+		Short: msg.SCPShort,
+		Long:  msg.SCPLong,
+		Example: msg.SCPExample,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Manually parse sogark-specific flags; everything else goes to scp.
@@ -67,7 +28,7 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 				return err
 			}
 			if len(sf.passArgs) == 0 {
-				return fmt.Errorf("specificare source e target\nEsempio: sogark scp file.txt host:/tmp/")
+				return fmt.Errorf(msg.SCPErrNoArgs)
 			}
 
 			cfg, err := config.Load()
@@ -91,10 +52,10 @@ Usare ":/path" per indicare il percorso remoto su ogni host.`,
 			// Check key validity
 			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if valid && !sf.forceLogin {
-				fmt.Printf("[+] Chiave valida (scade tra %s)\n", formatDuration(remaining))
+				fmt.Printf(msg.KeyValid, formatDuration(remaining))
 			} else {
 				if !valid {
-					fmt.Println("[!] Chiave scaduta o assente, avvio autenticazione...")
+					fmt.Println(msg.KeyExpired)
 				}
 				if err := doLogin(cfg); err != nil {
 					return err
@@ -216,7 +177,7 @@ func parseScpFlags(args []string) (sf scpFlags, err error) {
 		case a == "-u" || a == "--user":
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag %s richiede un valore", a)
+				err = fmt.Errorf(msg.FlagRequiresValue, a)
 				return
 			}
 			sf.user = args[i]
@@ -225,7 +186,7 @@ func parseScpFlags(args []string) (sf scpFlags, err error) {
 		case a == "--key-format":
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag %s richiede un valore", a)
+				err = fmt.Errorf(msg.FlagRequiresValue, a)
 				return
 			}
 			sf.keyFormat = args[i]
@@ -234,7 +195,7 @@ func parseScpFlags(args []string) (sf scpFlags, err error) {
 		case a == "--tag":
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag --tag richiede un valore")
+				err = fmt.Errorf(msg.SCPFlagTagRequired)
 				return
 			}
 			sf.tag = args[i]
@@ -243,7 +204,7 @@ func parseScpFlags(args []string) (sf scpFlags, err error) {
 		case a == "--any-tag":
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag --any-tag richiede un valore")
+				err = fmt.Errorf(msg.SCPFlagAnyTagRequired)
 				return
 			}
 			sf.anyTag = args[i]

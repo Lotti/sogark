@@ -86,7 +86,7 @@ func TestSet_InvalidKey(t *testing.T) {
 	if err == nil {
 		t.Error("Set with invalid key should return error")
 	}
-	if !strings.Contains(err.Error(), "chiave sconosciuta") {
+	if !strings.Contains(err.Error(), "unknown key") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -139,7 +139,7 @@ func TestLoad_NotFound(t *testing.T) {
 	if err == nil {
 		t.Error("Load() should return error when config doesn't exist")
 	}
-	if !strings.Contains(err.Error(), "configurazione non trovata") {
+	if !strings.Contains(err.Error(), "configuration not found") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/hosts"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
 	"github.com/spf13/cobra"
 )
@@ -18,13 +19,8 @@ import (
 func newSSHCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ssh [sogark-flags] [user@]host [ssh-args...]",
-		Short: "Connessione SSH via PSMP con autenticazione automatica",
-		Long: `Flusso completo: verifica chiave -> autenticazione SAML/MFA se necessaria -> connessione SSH.
-
-Se l'host corrisponde a un nome registrato in hosts.yaml, ne risolve indirizzo e utente.
-Tutti i flag ssh standard sono supportati direttamente.
-
-Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere l'host.`,
+		Short: msg.SSHShort,
+		Long:  msg.SSHLong,
 		Example: `  sogark ssh 10.1.2.3
   sogark ssh admin@10.1.2.3
   sogark ssh myserver
@@ -39,7 +35,7 @@ Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere l'host
 				return err
 			}
 			if host == "" {
-				return fmt.Errorf("specificare l'host\nEsempio: sogark ssh 10.1.2.3")
+				return fmt.Errorf(msg.SSHErrNoHost)
 			}
 
 			cfg, err := config.Load()
@@ -72,10 +68,10 @@ Flag sogark (--dry-run, --force-login, -u, --key-format) devono precedere l'host
 			// Check key validity
 			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if valid && !forceLogin {
-				fmt.Printf("[+] Chiave valida (scade tra %s)\n", formatDuration(remaining))
+				fmt.Printf(msg.KeyValid, formatDuration(remaining))
 			} else {
 				if !valid {
-					fmt.Println("[!] Chiave scaduta o assente, avvio autenticazione...")
+					fmt.Println(msg.KeyExpired)
 				}
 				if err := doLogin(cfg); err != nil {
 					return err
@@ -130,7 +126,7 @@ func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bo
 		case !hostFound && (a == "-u" || a == "--user"):
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag %s richiede un valore", a)
+				err = fmt.Errorf(msg.FlagRequiresValue, a)
 				return
 			}
 			user = args[i]
@@ -139,7 +135,7 @@ func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bo
 		case !hostFound && a == "--key-format":
 			i++
 			if i >= len(args) {
-				err = fmt.Errorf("flag %s richiede un valore", a)
+				err = fmt.Errorf(msg.FlagRequiresValue, a)
 				return
 			}
 			keyFormat = args[i]
@@ -173,6 +169,7 @@ func doLogin(cfg *config.Config) error {
 		return err
 	}
 
+	fmt.Println(msg.DownloadingKeys)
 	raw, err := client.FetchSSHKeys(cfg.KeyFormats)
 	if err != nil {
 		return err
@@ -204,11 +201,11 @@ func doLogin(cfg *config.Config) error {
 		return err
 	}
 
-	fmt.Println("[+] Chiavi salvate:")
+	fmt.Println(msg.KeysSaved)
 	for _, r := range results {
 		fmt.Printf("    %-40s (%s)\n", r.Path, r.Format)
 	}
-	fmt.Printf("  Scadenza: tra %dh\n", cfg.KeyTTLHours)
+	fmt.Printf(msg.KeysExpiry, cfg.KeyTTLHours)
 
 	return nil
 }

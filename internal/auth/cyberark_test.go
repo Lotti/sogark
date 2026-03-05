@@ -271,7 +271,7 @@ func TestFetchSSHKeys_NotAuthenticated(t *testing.T) {
 	if err == nil {
 		t.Error("FetchSSHKeys should fail without token")
 	}
-	if !strings.Contains(err.Error(), "non autenticato") {
+	if !strings.Contains(err.Error(), "not authenticated") {
 		t.Errorf("error should mention auth: %v", err)
 	}
 }

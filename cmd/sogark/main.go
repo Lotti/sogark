@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -25,12 +26,12 @@ func main() {
 
 	go func() {
 		<-signalCtx.Done()
-		fmt.Println("\n[!] Operazione interrotta")
+		fmt.Println(msg.RootInterrupted)
 	}()
 
 	rootCmd := &cobra.Command{
 		Use:           "sogark",
-		Short:         "CyberArk PSMP CLI — autenticazione SAML/MFA e gestione sessioni SSH",
+		Short:         msg.RootShort,
 		Version:       version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -41,7 +42,7 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, "output dettagliato per debug")
+	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, msg.RootFlagVerbose)
 
 	rootCmd.AddCommand(
 		newSSHCmd(),

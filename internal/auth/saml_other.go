@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/go-rod/rod/lib/proto"
 )
 
@@ -22,10 +23,7 @@ func findBrowser() (string, error) {
 	if p, found := launcher.LookPath(); found {
 		return p, nil
 	}
-	return "", fmt.Errorf("browser Chromium-based non trovato (Edge, Chrome, Chromium).\n" +
-		"Installa Edge o Chrome:\n" +
-		"  macOS:  brew install --cask microsoft-edge\n" +
-		"  Linux:  sudo apt install microsoft-edge-stable")
+	return "", fmt.Errorf(msg.AuthBrowserNotFound)
 }
 
 func findEdge() string {
@@ -62,18 +60,18 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		Set("disable-gpu").
 		Launch()
 	if err != nil {
-		return "", fmt.Errorf("errore avvio browser: %w", err)
+		return "", fmt.Errorf(msg.AuthBrowserStartErr, err)
 	}
 
 	browser := rod.New().ControlURL(u)
 	if err := browser.Connect(); err != nil {
-		return "", fmt.Errorf("errore connessione al browser: %w", err)
+		return "", fmt.Errorf(msg.AuthBrowserConnectErr, err)
 	}
 	defer browser.MustClose()
 
 	page, err := browser.Page(proto.TargetCreateTarget{URL: ""})
 	if err != nil {
-		return "", fmt.Errorf("errore apertura pagina browser: %w", err)
+		return "", fmt.Errorf(msg.AuthBrowserPageErr, err)
 	}
 	defer page.MustClose()
 
@@ -97,16 +95,16 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		}, true);
 	})()`)
 	if err != nil {
-		return "", fmt.Errorf("errore iniezione script intercettazione SAML: %w", err)
+		return "", fmt.Errorf(msg.AuthSAMLScriptErr, err)
 	}
 
 	err = page.Navigate(idpURL)
 	if err != nil {
-		return "", fmt.Errorf("errore navigazione verso IDP: %w", err)
+		return "", fmt.Errorf(msg.AuthNavigateErr, err)
 	}
 
-	fmt.Println("[*] Apertura browser per login SAML/MFA...")
-	fmt.Println("   Completa l'autenticazione nel browser.")
+	fmt.Println(msg.AuthBrowserOpening)
+	fmt.Println(msg.AuthCompleteInBrowser)
 
 	deadline := time.After(time.Duration(timeoutMinutes) * time.Minute)
 	ticker := time.NewTicker(500 * time.Millisecond)
@@ -115,14 +113,14 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 	for {
 		select {
 		case <-deadline:
-			return "", fmt.Errorf("timeout: SAMLResponse non ricevuta (hai completato il login?)")
+			return "", fmt.Errorf(msg.AuthSAMLTimeout)
 		case <-ticker.C:
 			val, evalErr := page.Eval(`window.__sogark_saml || ""`)
 			if evalErr != nil {
 				continue
 			}
 			if s := val.Value.Str(); s != "" {
-				fmt.Println("[+] Autenticazione completata")
+				fmt.Println(msg.AuthComplete)
 				return s, nil
 			}
 		}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	"github.com/sogei/cyberark-cli/internal/keys"
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -20,8 +21,8 @@ func newKeysCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "keys",
-		Short: "Scarica o gestisce le chiavi SSH",
-		Long:  `Scarica le chiavi SSH da CyberArk e le salva nella directory specificata.`,
+		Short: msg.KeysCmdShort,
+		Long:  msg.KeysCmdLong,
 		Example: `  sogark keys
   sogark keys --dir /tmp/deploy --format pem
   sogark keys --dir ~/.ssh --format openssh`,
@@ -49,7 +50,7 @@ func newKeysCmd() *cobra.Command {
 			// Check key validity
 			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
 			if valid && !forceLogin {
-				fmt.Printf("[+] Chiave valida (scade tra %dh %dm)\n",
+				fmt.Printf(msg.KeyValidFull,
 					int(remaining.Hours()), int(remaining.Minutes())%60)
 			} else {
 				if err := doLogin(cfg); err != nil {
@@ -61,9 +62,9 @@ func newKeysCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&dir, "dir", "d", "", "directory output (default: dalla config)")
-	cmd.Flags().StringVarP(&format, "format", "f", "", "formati: openssh,pem,ppk")
-	cmd.Flags().BoolVar(&forceLogin, "force-login", false, "forza ri-autenticazione")
+	cmd.Flags().StringVarP(&dir, "dir", "d", "", msg.KeysFlagDir)
+	cmd.Flags().StringVarP(&format, "format", "f", "", msg.KeysFlagFormat)
+	cmd.Flags().BoolVar(&forceLogin, "force-login", false, msg.KeysFlagForceLogin)
 
 	cmd.AddCommand(newKeysCleanCmd())
 
@@ -78,7 +79,7 @@ func newKeysCleanCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "clean",
-		Short: "Cancella le chiavi SSH scaricate",
+		Short: msg.KeysCleanShort,
 		Example: `  sogark keys clean
   sogark keys clean --dir /tmp/deploy
   sogark keys clean --yes`,
@@ -97,12 +98,12 @@ func newKeysCleanCmd() *cobra.Command {
 			}
 
 			if !yes {
-				fmt.Printf("Cancellare le chiavi in %s? [y/N] ", keyDir)
+				fmt.Printf(msg.KeysCleanPrompt, keyDir)
 				reader := bufio.NewReader(os.Stdin)
 				answer, _ := reader.ReadString('\n')
 				answer = strings.TrimSpace(strings.ToLower(answer))
 				if answer != "y" && answer != "yes" && answer != "s" && answer != "si" {
-					fmt.Println("Operazione annullata.")
+					fmt.Println(msg.KeysCleanCancelled)
 					return nil
 				}
 			}
@@ -113,17 +114,17 @@ func newKeysCleanCmd() *cobra.Command {
 			}
 
 			if len(removed) == 0 {
-				fmt.Println("Nessun file da rimuovere.")
+				fmt.Println(msg.KeysCleanNoFiles)
 			} else {
-				fmt.Printf("[+] Rimossi: %s\n", strings.Join(removed, ", "))
+				fmt.Printf(msg.KeysCleanRemoved, strings.Join(removed, ", "))
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&dir, "dir", "d", "", "directory da pulire (default: dalla config)")
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "salta la conferma")
+	cmd.Flags().StringVarP(&dir, "dir", "d", "", msg.KeysCleanFlagDir)
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, msg.KeysCleanFlagYes)
 
 	return cmd
 }
