@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // MobaSession represents an SSH session parsed from a MobaXterm export file.
@@ -20,7 +22,7 @@ type MobaSession struct {
 func ParseMobaFile(path string) ([]MobaSession, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("errore apertura file: %w", err)
+		return nil, fmt.Errorf(msg.MobaOpenFileErr, err)
 	}
 	defer f.Close()
 

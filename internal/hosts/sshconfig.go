@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 const (
@@ -30,7 +32,7 @@ func UpdateSSHConfig(host *Host, username, proxyHost, keyPath string) error {
 	// Ensure ~/.ssh directory exists
 	dir := configPath[:len(configPath)-len("/config")]
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return fmt.Errorf("errore creazione directory .ssh: %w", err)
+		return fmt.Errorf(msg.SSHConfigMkdir, err)
 	}
 
 	targetUser := host.User

@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // FileNames returns the key file names for a given base name.
@@ -22,7 +24,7 @@ type SaveResult struct {
 // Only keys matching the requested formats are saved.
 func Save(parsed *Parsed, dir string, baseName string, formats []string) ([]SaveResult, error) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, fmt.Errorf("errore creazione directory %s: %w", dir, err)
+		return nil, fmt.Errorf(msg.KeysMkdirErr, dir, err)
 	}
 
 	opensshName, pemName, ppkName := FileNames(baseName)
@@ -68,7 +70,7 @@ func Clean(dir string, baseName string) ([]string, error) {
 		if err := os.Remove(path); err == nil {
 			removed = append(removed, name)
 		} else if !os.IsNotExist(err) {
-			return removed, fmt.Errorf("errore rimozione %s: %w", path, err)
+			return removed, fmt.Errorf(msg.KeysRemoveErr, path, err)
 		}
 	}
 	return removed, nil
@@ -76,7 +78,7 @@ func Clean(dir string, baseName string) ([]string, error) {
 
 func writeKeyFile(path, content string) error {
 	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
-		return fmt.Errorf("errore scrittura %s: %w", path, err)
+		return fmt.Errorf(msg.KeysWriteErr, path, err)
 	}
 	return nil
 }

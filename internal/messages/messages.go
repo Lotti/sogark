@@ -330,12 +330,24 @@ const (
 	CfgUnknownKey      = "unknown key: %q\nValid keys: %s"
 )
 
+// ── internal/keys ─────────────────────────────────────────────────────────────
+
+const (
+	KeysMkdirErr     = "error creating directory %s: %w"
+	KeysRemoveErr    = "error removing %s: %w"
+	KeysWriteErr     = "error writing %s: %w"
+	KeysReadTSErr    = "error reading timestamp: %w"
+	KeysNoBlockFound = "no key block found in the response"
+)
+
 // ── internal/hosts ────────────────────────────────────────────────────────────
 
 const (
-	RegReadErr  = "error reading %s: %w"
-	RegParseErr = "error parsing %s: %w"
-	RegNotFound = "host %q not found"
+	RegReadErr      = "error reading %s: %w"
+	RegParseErr     = "error parsing %s: %w"
+	RegNotFound     = "host %q not found"
+	SSHConfigMkdir  = "error creating .ssh directory: %w"
+	MobaOpenFileErr = "error opening file: %w"
 )
 
 // ── internal/ssh ──────────────────────────────────────────────────────────────

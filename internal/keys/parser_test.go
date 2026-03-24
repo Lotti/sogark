@@ -104,7 +104,7 @@ func TestParse_NoKeys(t *testing.T) {
 	if err == nil {
 		t.Error("Parse should return error when no keys found")
 	}
-	if !strings.Contains(err.Error(), "nessun blocco chiave") {
+	if !strings.Contains(err.Error(), "no key block found") {
 		t.Errorf("unexpected error: %v", err)
 	}
 }

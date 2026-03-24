@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 // Parsed holds the extracted key blocks from the raw API response.
@@ -34,7 +36,7 @@ func Parse(raw string) (*Parsed, error) {
 	}
 
 	if p.OpenSSH == "" && p.PEM == "" && p.PPK == "" {
-		return nil, fmt.Errorf("nessun blocco chiave trovato nella risposta")
+		return nil, fmt.Errorf(msg.KeysNoBlockFound)
 	}
 
 	return p, nil

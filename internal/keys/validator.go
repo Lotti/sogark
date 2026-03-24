@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"time"
+
+	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
 const timestampFile = ".key_timestamp"
@@ -32,7 +34,7 @@ func IsValid(dir, baseName string, ttlHours int) (bool, time.Duration, error) {
 		if os.IsNotExist(err) {
 			return false, 0, nil
 		}
-		return false, 0, fmt.Errorf("errore lettura timestamp: %w", err)
+		return false, 0, fmt.Errorf(msg.KeysReadTSErr, err)
 	}
 
 	ts, err := strconv.ParseInt(string(data), 10, 64)
