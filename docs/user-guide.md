@@ -14,6 +14,14 @@
 
 ## Installazione
 
+### Requisiti di sistema
+
+| Piattaforma | Requisiti |
+|-------------|-----------|
+| macOS | Qualsiasi versione recente; Chrome o Edge per SAML/MFA |
+| Linux | Qualsiasi distribuzione; Chrome o Chromium per SAML/MFA |
+| Windows | **Windows 10 o 11** (richiesto — PowerShell 5.1 built-in necessario per SAML/MFA e rilevamento processi) |
+
 ### macOS / Linux
 
 ```bash

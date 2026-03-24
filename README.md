@@ -33,7 +33,8 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 
 ### Prerequisiti
 
-- **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA)
+- **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA su macOS/Linux)
+- **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell 5.1 built-in, usato per SAML/MFA e rilevamento processi)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
 
 ### Da Nexus (consigliato)

@@ -5,33 +5,18 @@ package auth
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 
 	msg "github.com/sogei/cyberark-cli/internal/messages"
 )
 
-// findPowerShell locates powershell.exe, checking PATH first then the standard
-// Windows system directory. This ensures it works from cmd.exe, PowerShell,
-// MinGW64/MSYS2, Git Bash, and any other shell environment.
+// findPowerShell locates powershell.exe in PATH.
+// Windows 10/11 always ships PowerShell 5.1 in PATH, so a simple LookPath is sufficient.
 func findPowerShell() (string, error) {
-	// Try PATH first (works in most cases)
 	if p, err := exec.LookPath("powershell.exe"); err == nil {
 		return p, nil
 	}
-
-	// Fallback: standard Windows PowerShell location
-	sysRoot := os.Getenv("SystemRoot")
-	if sysRoot == "" {
-		sysRoot = `C:\Windows`
-	}
-	fullPath := filepath.Join(sysRoot, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-	if _, err := os.Stat(fullPath); err == nil {
-		return fullPath, nil
-	}
-
 	return "", fmt.Errorf(msg.AuthPSNotFound)
 }
 

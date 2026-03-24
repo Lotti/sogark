@@ -445,16 +445,18 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 
 // isMobaXtermRunning checks if a MobaXterm process is currently running.
 // Only meaningful on Windows; returns false on other platforms.
+// Uses PowerShell Get-Process (always available on Win10/11) because
+// tasklist /FI with "eq" does not support wildcards.
 func isMobaXtermRunning() bool {
 	if runtime.GOOS != "windows" {
 		return false
 	}
-	out, err := exec.Command("tasklist", "/FI", "IMAGENAME eq MobaXterm*.exe", "/NH").Output()
+	out, err := exec.Command("powershell", "-NoProfile", "-NonInteractive",
+		"-Command", "Get-Process -Name 'MobaXterm*' -ErrorAction SilentlyContinue").Output()
 	if err != nil {
 		return false
 	}
-	lower := strings.ToLower(string(out))
-	return strings.Contains(lower, "mobaxterm")
+	return strings.Contains(strings.ToLower(string(out)), "mobaxterm")
 }
 
 // FindMobaXterm searches for MobaXterm in common locations.

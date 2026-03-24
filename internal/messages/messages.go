@@ -378,4 +378,8 @@ const (
 	SSHWinSCPNotFound     = "WinSCP not found"
 	SSHWinSCPOpening      = "[+] Opening WinSCP with %d sessions...\n"
 	SSHWinSCPSessionErr   = "[!] Error opening session for %s: %v\n"
+
+	PuTTYCreateSessionErr = "error creating PuTTY session: %w"
+	PuTTYSetValueErr      = "error setting PuTTY value %s: %w"
+	PuTTYDeleteSessionErr = "error deleting PuTTY session: %w"
 )
