@@ -27,22 +27,21 @@ jobs:
 
       - name: Set version
         id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Generate release assets
         run: |
-          echo "$VERSION" > bin/version.txt
-          sed "s|__UPDATE_REPO__|$GITHUB_REPOSITORY|g" scripts/install.sh > bin/install.sh
-          sed "s|__UPDATE_REPO__|$GITHUB_REPOSITORY|g" scripts/install.ps1 > bin/install.ps1
-        env:
-          UPDATE_REPO: ${{ github.repository }}
+          echo "${{ steps.version.outputs.version }}" > bin/version.txt
+          sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.sh > bin/install.sh
+          sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.ps1 > bin/install.ps1
 
       - name: Create release and upload assets
         uses: https://code.forgejo.org/actions/forgejo-release@v2
         with:
-          tag: ${{ env.VERSION }}
-          title: ${{ env.VERSION }}
-          body: "Release ${{ env.VERSION }}"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.version.outputs.version }}
+          title: ${{ steps.version.outputs.version }}
+          notes: "Release ${{ steps.version.outputs.version }}"
           files: |
             bin/sogark-darwin-arm64
             bin/sogark-darwin-amd64
