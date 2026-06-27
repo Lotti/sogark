@@ -1,16 +1,14 @@
 # sogark installer for Windows (PowerShell)
-# Usage: irm <nexus_url>/repository/<repo>/latest/install.ps1 | iex
+# Usage: irm https://codeberg.org/lotti/sogark/releases/download/<version>/install.ps1 | iex
 # Specific version: $env:VERSION='v1.2.0'; irm ... | iex
 
 param(
-    [string]$Version = $env:VERSION,
-    [string]$NexusUrl = $env:NEXUS_URL
+    [string]$Version = $env:VERSION
 )
 
 $ErrorActionPreference = "Stop"
 
-if (-not $NexusUrl) { $NexusUrl = "__NEXUS_URL__" }
-$NexusRepo = "__NEXUS_REPO__"
+$UpdateRepo = "__UPDATE_REPO__"
 if (-not $Version) { $Version = "latest" }
 
 $InstallDir = Join-Path $env:USERPROFILE ".sogark\bin"
@@ -20,19 +18,24 @@ function Main {
     Write-Host ""
 
     $binaryName = "sogark-windows-amd64.exe"
-    $downloadUrl = "$NexusUrl/repository/$NexusRepo/$Version/$binaryName"
+    $baseUrl = "https://codeberg.org/$UpdateRepo/releases/download"
 
-    # Show version
+    # Determine version
     if ($Version -eq "latest") {
         try {
-            $ver = (Invoke-WebRequest -Uri "$NexusUrl/repository/$NexusRepo/latest/version.txt" -UseBasicParsing).Content.Trim()
-            Write-Host "[*] Versione: $ver (latest)"
+            $apiUrl = "https://codeberg.org/api/v1/repos/$UpdateRepo/releases/latest"
+            $release = Invoke-RestMethod -Uri $apiUrl
+            $Version = $release.tag_name
+            Write-Host "[*] Versione: $Version (latest)"
         } catch {
-            Write-Host "[*] Versione: latest"
+            Write-Host "[!] Impossibile determinare l'ultima versione. Specificare `$env:VERSION." -ForegroundColor Red
+            exit 1
         }
     } else {
         Write-Host "[*] Versione: $Version"
     }
+
+    $downloadUrl = "$baseUrl/$Version/$binaryName"
     Write-Host "[*] Download: $downloadUrl"
     Write-Host ""
 
@@ -61,10 +64,9 @@ function Main {
 
     Write-Host "[✓] sogark installato in $destPath" -ForegroundColor Green
 
-    # Set nexus config for 'sogark update'
+    # Set update_repo config for 'sogark update'
     try {
-        & $destPath config set nexus_url $NexusUrl 2>$null
-        & $destPath config set nexus_repo $NexusRepo 2>$null
+        & $destPath config set update_repo $UpdateRepo 2>$null
     } catch {
         # Config might not exist yet, that's fine
     }

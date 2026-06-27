@@ -37,18 +37,18 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 - **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell 5.1 built-in, usato per SAML/MFA e rilevamento processi)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
 
-### Da Nexus (consigliato)
+### Da Codeberg (consigliato)
 
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://<nexus>/repository/sogark-releases/latest/install.sh | bash
+curl -fsSL https://codeberg.org/lotti/sogark/releases/latest/download/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://<nexus>/repository/sogark-releases/latest/install.ps1 | iex
+irm https://codeberg.org/lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
 Installa in `~/.sogark/bin/` e aggiunge automaticamente al PATH.
@@ -62,7 +62,7 @@ VERSION=v1.2.0 curl -fsSL .../install.sh | bash
 ### Da sorgente
 
 ```bash
-git clone <repository-url>
+git clone https://codeberg.org/lotti/sogark.git
 cd sogark
 make build          # → bin/sogark
 make install        # → /usr/local/bin/sogark
@@ -89,7 +89,7 @@ sogark update --check       # controlla senza aggiornare
 sogark update --version v1.2.0  # versione specifica
 ```
 
-Richiede `nexus_url` e `nexus_repo` configurati (impostati automaticamente dallo script di installazione).
+Richiede `update_repo` configurato (impostato automaticamente dallo script di installazione).
 
 ---
 
@@ -335,7 +335,7 @@ sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" --tag prod
 
 ### sogark update
 
-Aggiorna sogark all'ultima versione disponibile su Nexus.
+Aggiorna sogark all'ultima versione disponibile su Codeberg.
 
 ```bash
 sogark update                       # aggiorna all'ultima versione
@@ -344,11 +344,10 @@ sogark update --version v1.2.0      # installa versione specifica
 sogark update --force               # forza re-download
 ```
 
-Richiede `nexus_url` e `nexus_repo` configurati:
+Richiede `update_repo` configurato:
 
 ```bash
-sogark config set nexus_url https://nexus.example.com
-sogark config set nexus_repo sogark-releases
+sogark config set update_repo user/sogark
 ```
 
 | Flag | Descrizione |
@@ -403,8 +402,7 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | `tabby_path` | path | auto-detect | Percorso Tabby |
 | `winscp_path` | path | auto-detect | Percorso WinSCP.exe |
 | `default_multi_backend` | stringa | `auto` | Backend default per multi |
-| `nexus_url` | URL | — | URL base Nexus per aggiornamenti |
-| `nexus_repo` | stringa | — | Nome repository Nexus |
+| `update_repo` | stringa | — | Repository per self-update (es. `user/sogark`) |
 
 ---
 
@@ -434,17 +432,30 @@ make install        # → /usr/local/bin
 make clean          # pulisci bin/
 ```
 
-### Pubblicazione su Nexus
+### Versioning
+
+Usa [svu](https://github.com/caarlos0/svu) per versionamento semantico da commit convenzionali:
 
 ```bash
-make publish VERSION=v1.0.0 NEXUS_USER=deploy NEXUS_PASS=secret
+go install github.com/caarlos0/svu/v3@latest
+svu next            # prossima versione
+svu current         # versione corrente
 ```
 
-Cross-compila, genera gli install script con URL baked-in, e carica tutto sul repository Nexus raw sia in `v1.0.0/` che in `latest/`.
+Per creare una release:
 
-Variabili di default (sovrascrivibili):
-- `NEXUS_URL` — URL base Nexus
-- `NEXUS_REPO` — nome repository (default: `sogark-releases`)
+```bash
+git tag $(svu next)
+git push --tags
+```
+
+La CI su Codeberg (`.forgejo/workflows/release.yml`) compila e pubblica automaticamente.
+
+### Creazione asset di release locale
+
+```bash
+make release-assets UPDATE_REPO=user/sogark
+```
 
 ## Test
 

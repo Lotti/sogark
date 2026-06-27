@@ -1,13 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/sogei/cyberark-cli/internal/config"
 	msg "github.com/sogei/cyberark-cli/internal/messages"
@@ -22,9 +22,9 @@ func newUpdateCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "update",
-		Short: msg.UpdateShort,
-		Long:  msg.UpdateLong,
+		Use:     "update",
+		Short:   msg.UpdateShort,
+		Long:    msg.UpdateLong,
 		Example: msg.UpdateExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
@@ -32,16 +32,14 @@ func newUpdateCmd() *cobra.Command {
 				return err
 			}
 
-			if cfg.NexusURL == "" || cfg.NexusRepo == "" {
+			if cfg.UpdateRepo == "" {
 				return fmt.Errorf(msg.UpdateErrNotConfigured)
 			}
-
-			baseURL := strings.TrimRight(cfg.NexusURL, "/") + "/repository/" + cfg.NexusRepo
 
 			// Determine target version
 			if targetVersion == "" {
 				fmt.Println(msg.UpdateCheckingVersion)
-				latest, err := fetchLatestVersion(baseURL)
+				latest, err := fetchLatestVersion(cfg.UpdateRepo)
 				if err != nil {
 					return fmt.Errorf(msg.UpdateErrFetchVersion, err)
 				}
@@ -63,13 +61,9 @@ func newUpdateCmd() *cobra.Command {
 				return nil
 			}
 
-			// Determine binary name for this platform
 			binaryName := sogarkBinaryName()
-			versionPath := "latest"
-			if targetVersion != "" {
-				versionPath = targetVersion
-			}
-			downloadURL := baseURL + "/" + versionPath + "/" + binaryName
+			downloadURL := fmt.Sprintf("https://codeberg.org/%s/releases/download/%s/%s",
+				cfg.UpdateRepo, targetVersion, binaryName)
 
 			fmt.Printf("[*] Download: %s\n", downloadURL)
 
@@ -115,24 +109,30 @@ func newUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-// fetchLatestVersion reads version.txt from the Nexus latest/ folder.
-func fetchLatestVersion(baseURL string) (string, error) {
-	resp, err := http.Get(baseURL + "/latest/version.txt")
+// codebergRelease represents the Codeberg API release response.
+type codebergRelease struct {
+	TagName string `json:"tag_name"`
+}
+
+// fetchLatestVersion queries the Codeberg API for the latest release tag.
+func fetchLatestVersion(repo string) (string, error) {
+	url := fmt.Sprintf("https://codeberg.org/api/v1/repos/%s/releases/latest", repo)
+	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf(msg.UpdateHTTPErrVersion, resp.StatusCode, baseURL)
+		return "", fmt.Errorf(msg.UpdateHTTPErrVersion, resp.StatusCode, url)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	var rel codebergRelease
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(string(body)), nil
+	return rel.TagName, nil
 }
 
 // sogarkBinaryName returns the expected binary filename for this platform.

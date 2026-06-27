@@ -25,16 +25,16 @@
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://<nexus>/repository/sogark-releases/latest/install.sh | bash
+curl -fsSL https://codeberg.org/lotti/sogark/releases/latest/download/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://<nexus>/repository/sogark-releases/latest/install.ps1 | iex
+irm https://codeberg.org/lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
-Lo script scarica il binario in `~/.sogark/bin/`, aggiunge la directory al PATH e configura automaticamente `nexus_url` e `nexus_repo` per gli aggiornamenti futuri.
+Lo script scarica il binario in `~/.sogark/bin/`, aggiunge la directory al PATH e configura automaticamente `update_repo` per gli aggiornamenti futuri.
 
 ### Versione specifica
 
@@ -117,8 +117,7 @@ default_scp_user: oper1
 | `tabby_path` | path | auto-detect | Percorso eseguibile Tabby |
 | `winscp_path` | path | auto-detect | Percorso eseguibile WinSCP |
 | `default_multi_backend` | stringa | `auto` | Backend default per `sogark multi` |
-| `nexus_url` | URL | — | URL base Nexus per aggiornamenti |
-| `nexus_repo` | stringa | — | Nome repository Nexus raw |
+| `update_repo` | stringa | — | Repository per self-update (es. `user/sogark`) |
 
 ### Note sul `key_dir`
 

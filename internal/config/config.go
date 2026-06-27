@@ -31,7 +31,7 @@ var ValidKeys = []string{
 	"key_dir", "key_formats", "default_ssh_user", "default_scp_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
 	"moba_path", "moba_max_sessions", "tabby_path", "winscp_path",
-	"default_multi_backend", "nexus_url", "nexus_repo",
+	"default_multi_backend", "update_repo",
 }
 
 type Config struct {
@@ -51,8 +51,7 @@ type Config struct {
 	TabbyPath          string   `yaml:"tabby_path,omitempty"`
 	WinSCPPath         string   `yaml:"winscp_path,omitempty"`
 	DefaultMultiBackend string  `yaml:"default_multi_backend,omitempty"`
-	NexusURL            string  `yaml:"nexus_url,omitempty"`
-	NexusRepo           string  `yaml:"nexus_repo,omitempty"`
+	UpdateRepo           string  `yaml:"update_repo,omitempty"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -186,10 +185,8 @@ func (c *Config) Set(key, value string) error {
 			return fmt.Errorf(msg.CfgInvalidBackend, value)
 		}
 		c.DefaultMultiBackend = value
-	case "nexus_url":
-		c.NexusURL = value
-	case "nexus_repo":
-		c.NexusRepo = value
+	case "update_repo":
+		c.UpdateRepo = value
 	default:
 		return fmt.Errorf(msg.CfgUnknownKey, key, strings.Join(ValidKeys, ", "))
 	}
@@ -255,11 +252,8 @@ saml_timeout_minutes:  %d`,
 	if c.DefaultMultiBackend != "" {
 		result += fmt.Sprintf("\ndefault_multi_backend: %s", c.DefaultMultiBackend)
 	}
-	if c.NexusURL != "" {
-		result += fmt.Sprintf("\nnexus_url:             %s", c.NexusURL)
-	}
-	if c.NexusRepo != "" {
-		result += fmt.Sprintf("\nnexus_repo:            %s", c.NexusRepo)
+	if c.UpdateRepo != "" {
+		result += fmt.Sprintf("\nupdate_repo:           %s", c.UpdateRepo)
 	}
 	return result
 }

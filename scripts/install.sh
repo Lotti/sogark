@@ -2,11 +2,10 @@
 set -euo pipefail
 
 # sogark installer for macOS/Linux
-# Usage: curl -fsSL <nexus_url>/repository/<repo>/latest/install.sh | bash
+# Usage: curl -fsSL https://codeberg.org/lotti/sogark/releases/download/<version>/install.sh | bash
 # Override version: VERSION=v1.2.0 curl -fsSL ... | bash
 
-NEXUS_URL="__NEXUS_URL__"
-NEXUS_REPO="__NEXUS_REPO__"
+UPDATE_REPO="__UPDATE_REPO__"
 VERSION="${VERSION:-latest}"
 INSTALL_DIR="${HOME}/.sogark/bin"
 
@@ -32,23 +31,28 @@ detect_platform() {
 }
 
 main() {
-    local platform binary_name download_url
+    local platform binary_name base_url download_url
 
     echo "[*] Installazione sogark..."
     echo ""
 
     platform="$(detect_platform)"
     binary_name="sogark-${platform}"
-    download_url="${NEXUS_URL}/repository/${NEXUS_REPO}/${VERSION}/${binary_name}"
+    base_url="https://codeberg.org/${UPDATE_REPO}/releases/download"
 
-    # Show version info
     if [ "$VERSION" = "latest" ]; then
-        local ver
-        ver="$(curl -fsSL "${NEXUS_URL}/repository/${NEXUS_REPO}/latest/version.txt" 2>/dev/null || echo "unknown")"
-        echo "[*] Versione: ${ver} (latest)"
-    else
-        echo "[*] Versione: ${VERSION}"
+        # Fetch latest release tag from Codeberg API
+        local api_url="https://codeberg.org/api/v1/repos/${UPDATE_REPO}/releases/latest"
+        VERSION="$(curl -fsSL "$api_url" 2>/dev/null | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 || echo "")"
+        if [ -z "$VERSION" ]; then
+            echo "[!] Impossibile determinare l'ultima versione. Specificare VERSION= manualmente." >&2
+            exit 1
+        fi
     fi
+
+    download_url="${base_url}/${VERSION}/${binary_name}"
+
+    echo "[*] Versione: ${VERSION}"
     echo "[*] Piattaforma: ${platform}"
     echo "[*] Download: ${download_url}"
     echo ""
@@ -71,11 +75,9 @@ main() {
     echo ""
     echo "[✓] sogark installato in ${INSTALL_DIR}/sogark"
 
-    # Configure nexus_url and nexus_repo if sogark config exists or can be created
+    # Configure update_repo so 'sogark update' works out of the box
     if [ -x "${INSTALL_DIR}/sogark" ]; then
-        # Set nexus config so 'sogark update' works out of the box
-        "${INSTALL_DIR}/sogark" config set nexus_url "${NEXUS_URL}" 2>/dev/null || true
-        "${INSTALL_DIR}/sogark" config set nexus_repo "${NEXUS_REPO}" 2>/dev/null || true
+        "${INSTALL_DIR}/sogark" config set update_repo "${UPDATE_REPO}" 2>/dev/null || true
     fi
 
     # Check if already in PATH

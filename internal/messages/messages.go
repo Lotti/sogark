@@ -194,20 +194,18 @@ const (
 // ── Update command ────────────────────────────────────────────────────────────
 
 const (
-	UpdateShort = "Update sogark to the latest version from Nexus"
-	UpdateLong  = `Checks the latest version available on the Nexus repository
+	UpdateShort = "Update sogark to the latest version from Codeberg"
+	UpdateLong  = `Checks the latest version available on Codeberg Releases
 and updates the current binary if necessary.
 
-Requires nexus_url and nexus_repo to be configured:
-  sogark config set nexus_url https://nexus.example.com
-  sogark config set nexus_repo sogark-releases`
+Requires update_repo to be configured:
+  sogark config set update_repo user/sogark`
 	UpdateExample = `  sogark update              # update to the latest version
   sogark update --check      # check without updating
   sogark update --version v1.2.0  # install specific version
   sogark update --force      # force re-download even if up to date`
-	UpdateErrNotConfigured = "nexus_url and nexus_repo not configured.\nRun:\n" +
-		"  sogark config set nexus_url https://nexus.example.com\n" +
-		"  sogark config set nexus_repo sogark-releases"
+	UpdateErrNotConfigured = "update_repo not configured.\nRun:\n" +
+		"  sogark config set update_repo user/sogark"
 	UpdateCheckingVersion  = "[*] Checking latest available version..."
 	UpdateErrFetchVersion  = "error fetching version: %w"
 	UpdateCurrentVersion   = "[*] Current version: %s\n"
@@ -223,7 +221,7 @@ Requires nexus_url and nexus_repo to be configured:
 	UpdateFlagVersion      = "specific version to install (e.g. v1.2.0)"
 	UpdateFlagForce        = "force download even if version matches"
 	UpdateFlagCheck        = "check without updating"
-	UpdateHTTPErrVersion   = "HTTP %d from %s/latest/version.txt"
+	UpdateHTTPErrVersion   = "HTTP %d from %s"
 	UpdateHTTPErr          = "HTTP %d from %s"
 )
 
