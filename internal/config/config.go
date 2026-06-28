@@ -1,13 +1,16 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"gopkg.in/yaml.v3"
 )
 
@@ -21,9 +24,15 @@ const (
 const (
 	DefaultKeyTTLHours    = 4
 	DefaultSAMLTimeoutMin = 5
+	DefaultUpdateRepo     = "Lotti/sogark"
 )
 
 var DefaultKeyFormats = []string{"OpenSSH", "PEM", "PPK"}
+
+var (
+	ErrConfigNotFound = errors.New(msg.CfgNotFound)
+	repoPattern       = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
+)
 
 // ValidKeys lists all settable configuration keys.
 var ValidKeys = []string{
@@ -35,24 +44,29 @@ var ValidKeys = []string{
 }
 
 type Config struct {
-	Username           string   `yaml:"username"`
-	PVWABaseURL        string   `yaml:"pvwa_base_url"`
-	IDPURL             string   `yaml:"idp_url"`
-	ProxyHost          string   `yaml:"proxy_host"`
-	KeyDir             string   `yaml:"key_dir"`
-	KeyFormats         []string `yaml:"key_formats"`
-	DefaultSSHUser     string   `yaml:"default_ssh_user"`
-	DefaultSCPUser     string   `yaml:"default_scp_user,omitempty"`
-	SSHKeyName         string   `yaml:"ssh_key_name"`
-	KeyTTLHours        int      `yaml:"key_ttl_hours"`
-	SAMLTimeoutMinutes int      `yaml:"saml_timeout_minutes"`
-	MobaPath           string   `yaml:"moba_path,omitempty"`
-	MobaMaxSessions    int      `yaml:"moba_max_sessions,omitempty"`
-	TabbyPath          string   `yaml:"tabby_path,omitempty"`
-	WinSCPPath         string   `yaml:"winscp_path,omitempty"`
-	DefaultMultiBackend string  `yaml:"default_multi_backend,omitempty"`
-	UpdateRepo           string  `yaml:"update_repo,omitempty"`
-	FileZillaPath        string  `yaml:"filezilla_path,omitempty"`
+	Username            string   `yaml:"username"`
+	PVWABaseURL         string   `yaml:"pvwa_base_url"`
+	IDPURL              string   `yaml:"idp_url"`
+	ProxyHost           string   `yaml:"proxy_host"`
+	KeyDir              string   `yaml:"key_dir"`
+	KeyFormats          []string `yaml:"key_formats"`
+	DefaultSSHUser      string   `yaml:"default_ssh_user"`
+	DefaultSCPUser      string   `yaml:"default_scp_user,omitempty"`
+	SSHKeyName          string   `yaml:"ssh_key_name"`
+	KeyTTLHours         int      `yaml:"key_ttl_hours"`
+	SAMLTimeoutMinutes  int      `yaml:"saml_timeout_minutes"`
+	MobaPath            string   `yaml:"moba_path,omitempty"`
+	MobaMaxSessions     int      `yaml:"moba_max_sessions,omitempty"`
+	TabbyPath           string   `yaml:"tabby_path,omitempty"`
+	WinSCPPath          string   `yaml:"winscp_path,omitempty"`
+	DefaultMultiBackend string   `yaml:"default_multi_backend,omitempty"`
+	UpdateRepo          string   `yaml:"update_repo,omitempty"`
+	FileZillaPath       string   `yaml:"filezilla_path,omitempty"`
+}
+
+type ValidationIssue struct {
+	Field   string
+	Message string
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -91,6 +105,7 @@ func Defaults() Config {
 		KeyTTLHours:        DefaultKeyTTLHours,
 		SAMLTimeoutMinutes: DefaultSAMLTimeoutMin,
 		MobaMaxSessions:    20,
+		UpdateRepo:         DefaultUpdateRepo,
 	}
 }
 
@@ -103,7 +118,7 @@ func Load() (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf(msg.CfgNotFound)
+			return nil, ErrConfigNotFound
 		}
 		return nil, fmt.Errorf(msg.CfgReadErr, err)
 	}
@@ -111,7 +126,26 @@ func Load() (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf(msg.CfgParseErr, err)
 	}
+	if len(cfg.KeyFormats) > 0 {
+		formats, err := NormalizeKeyFormats(cfg.KeyFormats)
+		if err != nil {
+			return nil, err
+		}
+		cfg.KeyFormats = formats
+	}
 	return &cfg, nil
+}
+
+func LoadOrDefaults() (*Config, error) {
+	cfg, err := Load()
+	if err == nil {
+		return cfg, nil
+	}
+	if errors.Is(err, ErrConfigNotFound) {
+		defaults := Defaults()
+		return &defaults, nil
+	}
+	return nil, err
 }
 
 // Save writes the configuration to disk, creating the directory if needed.
@@ -149,7 +183,11 @@ func (c *Config) Set(key, value string) error {
 	case "key_dir":
 		c.KeyDir = value
 	case "key_formats":
-		c.KeyFormats = splitAndTrim(value)
+		formats, err := NormalizeKeyFormats(splitAndTrim(value))
+		if err != nil {
+			return err
+		}
+		c.KeyFormats = formats
 	case "default_ssh_user":
 		c.DefaultSSHUser = value
 	case "default_scp_user":
@@ -187,6 +225,10 @@ func (c *Config) Set(key, value string) error {
 		}
 		c.DefaultMultiBackend = value
 	case "update_repo":
+		value = strings.TrimSpace(value)
+		if value != "" && !repoPattern.MatchString(value) {
+			return fmt.Errorf(msg.CfgInvalidRepo)
+		}
 		c.UpdateRepo = value
 	case "filezilla_path":
 		c.FileZillaPath = value
@@ -194,6 +236,13 @@ func (c *Config) Set(key, value string) error {
 		return fmt.Errorf(msg.CfgUnknownKey, key, strings.Join(ValidKeys, ", "))
 	}
 	return nil
+}
+
+func (c *Config) ResolvedUpdateRepo() string {
+	if strings.TrimSpace(c.UpdateRepo) == "" {
+		return DefaultUpdateRepo
+	}
+	return strings.TrimSpace(c.UpdateRepo)
 }
 
 // ResolveKeyDir returns the key directory, expanding ~ if needed.
@@ -206,6 +255,109 @@ func (c *Config) ResolveKeyDir() (string, error) {
 		return filepath.Join(home, c.KeyDir[2:]), nil
 	}
 	return c.KeyDir, nil
+}
+
+func NormalizeKeyFormats(formats []string) ([]string, error) {
+	if len(formats) == 0 {
+		return nil, fmt.Errorf(msg.CfgKeyFormatsErr)
+	}
+
+	normalized := make([]string, 0, len(formats))
+	seen := make(map[string]bool)
+	for _, format := range formats {
+		switch strings.ToLower(strings.TrimSpace(format)) {
+		case "openssh":
+			if !seen["OpenSSH"] {
+				normalized = append(normalized, "OpenSSH")
+				seen["OpenSSH"] = true
+			}
+		case "pem":
+			if !seen["PEM"] {
+				normalized = append(normalized, "PEM")
+				seen["PEM"] = true
+			}
+		case "ppk":
+			if !seen["PPK"] {
+				normalized = append(normalized, "PPK")
+				seen["PPK"] = true
+			}
+		case "":
+		default:
+			return nil, fmt.Errorf(msg.CfgKeyFormatsErr)
+		}
+	}
+
+	if len(normalized) == 0 {
+		return nil, fmt.Errorf(msg.CfgKeyFormatsErr)
+	}
+	return normalized, nil
+}
+
+func (c *Config) ValidationIssues() []ValidationIssue {
+	var issues []ValidationIssue
+
+	required := map[string]string{
+		"username":         strings.TrimSpace(c.Username),
+		"pvwa_base_url":    strings.TrimSpace(c.PVWABaseURL),
+		"idp_url":          strings.TrimSpace(c.IDPURL),
+		"proxy_host":       strings.TrimSpace(c.ProxyHost),
+		"key_dir":          strings.TrimSpace(c.KeyDir),
+		"default_ssh_user": strings.TrimSpace(c.DefaultSSHUser),
+		"ssh_key_name":     strings.TrimSpace(c.SSHKeyName),
+	}
+	for field, value := range required {
+		if value == "" {
+			issues = append(issues, ValidationIssue{Field: field, Message: "is required"})
+		}
+	}
+
+	if c.PVWABaseURL != "" && !isHTTPURL(c.PVWABaseURL) {
+		issues = append(issues, ValidationIssue{Field: "pvwa_base_url", Message: msg.CfgInvalidURL})
+	}
+	if c.IDPURL != "" && !isHTTPURL(c.IDPURL) {
+		issues = append(issues, ValidationIssue{Field: "idp_url", Message: msg.CfgInvalidURL})
+	}
+	if c.KeyDir != "" {
+		if resolved, err := c.ResolveKeyDir(); err != nil || strings.TrimSpace(resolved) == "" {
+			issues = append(issues, ValidationIssue{Field: "key_dir", Message: "must resolve to a valid path"})
+		}
+	}
+	if strings.ContainsAny(c.SSHKeyName, `/\`) {
+		issues = append(issues, ValidationIssue{Field: "ssh_key_name", Message: "must be a file name, not a path"})
+	}
+	if _, err := NormalizeKeyFormats(c.KeyFormats); err != nil {
+		issues = append(issues, ValidationIssue{Field: "key_formats", Message: err.Error()})
+	}
+	if c.KeyTTLHours <= 0 {
+		issues = append(issues, ValidationIssue{Field: "key_ttl_hours", Message: "must be greater than 0"})
+	}
+	if c.SAMLTimeoutMinutes <= 0 {
+		issues = append(issues, ValidationIssue{Field: "saml_timeout_minutes", Message: "must be greater than 0"})
+	}
+	if c.DefaultMultiBackend != "" {
+		valid := map[string]bool{"auto": true, "wezterm": true, "tabby": true, "wt": true, "tmux": true}
+		if !valid[c.DefaultMultiBackend] {
+			issues = append(issues, ValidationIssue{Field: "default_multi_backend", Message: fmt.Sprintf(msg.CfgInvalidBackend, c.DefaultMultiBackend)})
+		}
+	}
+	if c.UpdateRepo != "" && !repoPattern.MatchString(strings.TrimSpace(c.UpdateRepo)) {
+		issues = append(issues, ValidationIssue{Field: "update_repo", Message: msg.CfgInvalidRepo})
+	}
+
+	return issues
+}
+
+func (c *Config) Validate() error {
+	issues := c.ValidationIssues()
+	if len(issues) == 0 {
+		return nil
+	}
+
+	var lines []string
+	for _, issue := range issues {
+		lines = append(lines, fmt.Sprintf("- %s: %s", issue.Field, issue.Message))
+	}
+	return fmt.Errorf(msg.ConfigValidationFailed, strings.Join(lines, "\n"))
 }
 
 // Show returns a formatted string representation of the configuration.
@@ -274,4 +426,12 @@ func splitAndTrim(s string) []string {
 		}
 	}
 	return result
+}
+
+func isHTTPURL(raw string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return false
+	}
+	return parsed.IsAbs() && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }

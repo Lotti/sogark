@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // MobaSession represents an SSH session parsed from a MobaXterm export file.

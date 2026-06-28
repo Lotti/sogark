@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sogei/cyberark-cli/internal/hosts"
+	"github.com/Lotti/sogark/internal/hosts"
 )
 
 func TestParseScpFlags_Basic(t *testing.T) {

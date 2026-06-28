@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -51,7 +52,7 @@ func TestLogon_Success(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	err := c.Logon("test-saml-response")
+	err := c.Logon(context.Background(), "test-saml-response")
 	if err != nil {
 		t.Fatalf("Logon error: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestLogon_UnquotedToken(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	err := c.Logon("saml")
+	err := c.Logon(context.Background(), "saml")
 	if err != nil {
 		t.Fatalf("Logon error: %v", err)
 	}
@@ -85,7 +86,7 @@ func TestLogon_HTTPError(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	err := c.Logon("bad-saml")
+	err := c.Logon(context.Background(), "bad-saml")
 	if err == nil {
 		t.Error("Logon should return error on HTTP 401")
 	}
@@ -102,7 +103,7 @@ func TestLogon_EmptyToken(t *testing.T) {
 	defer server.Close()
 
 	c := NewClient(server.URL)
-	err := c.Logon("saml")
+	err := c.Logon(context.Background(), "saml")
 	if err == nil {
 		t.Error("Logon should return error for empty token")
 	}
@@ -147,7 +148,7 @@ func TestFetchSSHKeys_Success(t *testing.T) {
 	c := NewClient(server.URL)
 	c.Token = "test-token"
 
-	result, err := c.FetchSSHKeys([]string{"OpenSSH", "PEM"})
+	result, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH", "PEM"})
 	if err != nil {
 		t.Fatalf("FetchSSHKeys error: %v", err)
 	}
@@ -191,7 +192,7 @@ func TestFetchSSHKeys_AllFormatsIntegration(t *testing.T) {
 	c := NewClient(server.URL)
 	c.Token = "test-token"
 
-	raw, err := c.FetchSSHKeys([]string{"OpenSSH", "PEM", "PPK"})
+	raw, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH", "PEM", "PPK"})
 	if err != nil {
 		t.Fatalf("FetchSSHKeys error: %v", err)
 	}
@@ -231,7 +232,7 @@ func TestFetchSSHKeys_JSONStringResponse(t *testing.T) {
 	c := NewClient(server.URL)
 	c.Token = "test-token"
 
-	result, err := c.FetchSSHKeys([]string{"OpenSSH"})
+	result, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH"})
 	if err != nil {
 		t.Fatalf("FetchSSHKeys error: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestFetchSSHKeys_RawTextResponse(t *testing.T) {
 	c := NewClient(server.URL)
 	c.Token = "test-token"
 
-	result, err := c.FetchSSHKeys([]string{"OpenSSH"})
+	result, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH"})
 	if err != nil {
 		t.Fatalf("FetchSSHKeys error: %v", err)
 	}
@@ -267,7 +268,7 @@ func TestFetchSSHKeys_RawTextResponse(t *testing.T) {
 func TestFetchSSHKeys_NotAuthenticated(t *testing.T) {
 	c := NewClient("https://example.com")
 	// Token is empty
-	_, err := c.FetchSSHKeys([]string{"OpenSSH"})
+	_, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH"})
 	if err == nil {
 		t.Error("FetchSSHKeys should fail without token")
 	}
@@ -286,7 +287,7 @@ func TestFetchSSHKeys_HTTPError(t *testing.T) {
 	c := NewClient(server.URL)
 	c.Token = "expired-token"
 
-	_, err := c.FetchSSHKeys([]string{"OpenSSH"})
+	_, err := c.FetchSSHKeys(context.Background(), []string{"OpenSSH"})
 	if err == nil {
 		t.Error("FetchSSHKeys should fail on HTTP 403")
 	}

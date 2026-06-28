@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // Parsed holds the extracted key blocks from the raw API response.

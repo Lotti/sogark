@@ -10,15 +10,15 @@ import (
 	"strings"
 	"time"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // ── FileZilla XML structures ─────────────────────────────────────────────────
 
 // filezillaXML is the root of sitemanager.xml.
 type filezillaXML struct {
-	XMLName xml.Name          `xml:"FileZilla3"`
-	Servers filezillaServers  `xml:"Servers"`
+	XMLName xml.Name         `xml:"FileZilla3"`
+	Servers filezillaServers `xml:"Servers"`
 }
 
 type filezillaServers struct {
@@ -26,19 +26,19 @@ type filezillaServers struct {
 }
 
 type filezillaServer struct {
-	Host        string `xml:"Host"`
-	Port        int    `xml:"Port"`
-	Protocol    int    `xml:"Protocol"`    // 1 = SFTP
-	Type        int    `xml:"Type"`
-	Logontype   int    `xml:"Logontype"`   // 5 = key file
-	User        string `xml:"User"`
-	Pass        string `xml:"Pass"`
-	Keyfile     string `xml:"Keyfile"`
-	Name        string `xml:"Name"`
-	Comments    string `xml:"Comments"`
-	LocalDir    string `xml:"LocalDir"`
-	RemoteDir   string `xml:"RemoteDir"`
-	SyncBrowsing int   `xml:"SyncBrowsing"`
+	Host         string `xml:"Host"`
+	Port         int    `xml:"Port"`
+	Protocol     int    `xml:"Protocol"` // 1 = SFTP
+	Type         int    `xml:"Type"`
+	Logontype    int    `xml:"Logontype"` // 5 = key file
+	User         string `xml:"User"`
+	Pass         string `xml:"Pass"`
+	Keyfile      string `xml:"Keyfile"`
+	Name         string `xml:"Name"`
+	Comments     string `xml:"Comments"`
+	LocalDir     string `xml:"LocalDir"`
+	RemoteDir    string `xml:"RemoteDir"`
+	SyncBrowsing int    `xml:"SyncBrowsing"`
 }
 
 // ── Public API ───────────────────────────────────────────────────────────────
@@ -144,14 +144,14 @@ func ConfigureFileZilla(hosts []HostTarget, username, proxyHost, keyPath string)
 		psmpUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
 
 		fz.Servers.Servers = append(fz.Servers.Servers, filezillaServer{
-			Host:        proxyHost,
-			Port:        22,
-			Protocol:    1, // SFTP
-			Type:        0,
-			Logontype:   5, // key file
-			User:        psmpUser,
-			Keyfile:     absKey,
-			Name:        name,
+			Host:         proxyHost,
+			Port:         22,
+			Protocol:     1, // SFTP
+			Type:         0,
+			Logontype:    5, // key file
+			User:         psmpUser,
+			Keyfile:      absKey,
+			Name:         name,
 			SyncBrowsing: 0,
 		})
 	}

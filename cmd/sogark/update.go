@@ -1,16 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
+	"time"
 
-	"github.com/sogei/cyberark-cli/internal/config"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	"github.com/Lotti/sogark/internal/config"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -27,19 +28,17 @@ func newUpdateCmd() *cobra.Command {
 		Long:    msg.UpdateLong,
 		Example: msg.UpdateExample,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.LoadOrDefaults()
 			if err != nil {
 				return err
 			}
 
-			if cfg.UpdateRepo == "" {
-				return fmt.Errorf(msg.UpdateErrNotConfigured)
-			}
+			repo := cfg.ResolvedUpdateRepo()
+			httpClient := &http.Client{Timeout: 30 * time.Second}
 
-			// Determine target version
 			if targetVersion == "" {
 				fmt.Println(msg.UpdateCheckingVersion)
-				latest, err := fetchLatestVersion(cfg.UpdateRepo)
+				latest, err := fetchLatestVersion(signalCtx, httpClient, repo)
 				if err != nil {
 					return fmt.Errorf(msg.UpdateErrFetchVersion, err)
 				}
@@ -61,13 +60,9 @@ func newUpdateCmd() *cobra.Command {
 				return nil
 			}
 
-			binaryName := sogarkBinaryName()
-			downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s",
-				cfg.UpdateRepo, targetVersion, binaryName)
-
+			downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", repo, targetVersion, sogarkBinaryName())
 			fmt.Printf("[*] Download: %s\n", downloadURL)
 
-			// Download to temp file
 			execPath, err := os.Executable()
 			if err != nil {
 				return fmt.Errorf(msg.UpdateErrExecPath, err)
@@ -78,23 +73,20 @@ func newUpdateCmd() *cobra.Command {
 			}
 
 			tmpPath := execPath + ".update"
-			if err := downloadFile(downloadURL, tmpPath); err != nil {
+			if err := downloadFile(signalCtx, httpClient, downloadURL, tmpPath); err != nil {
 				os.Remove(tmpPath)
 				return fmt.Errorf(msg.UpdateErrDownload, err)
 			}
 
-			// Make executable (no-op on Windows)
-			if runtime.GOOS != "windows" {
-				if err := os.Chmod(tmpPath, 0755); err != nil {
-					os.Remove(tmpPath)
-					return fmt.Errorf(msg.UpdateErrChmod, err)
-				}
+			replaceResult, err := replaceCurrentBinary(execPath, tmpPath, targetVersion)
+			if err != nil {
+				os.Remove(tmpPath)
+				return err
 			}
 
-			// Replace current binary
-			if err := os.Rename(tmpPath, execPath); err != nil {
-				os.Remove(tmpPath)
-				return fmt.Errorf(msg.UpdateErrReplace, err)
+			if replaceResult.Deferred {
+				fmt.Printf(msg.UpdateDeferredSuccess, targetVersion)
+				return nil
 			}
 
 			fmt.Printf(msg.UpdateSuccess, targetVersion)
@@ -109,15 +101,20 @@ func newUpdateCmd() *cobra.Command {
 	return cmd
 }
 
-// codebergRelease represents the Codeberg API release response.
-type codebergRelease struct {
+type githubRelease struct {
 	TagName string `json:"tag_name"`
 }
 
-// fetchLatestVersion queries the GitHub API for the latest release tag.
-func fetchLatestVersion(repo string) (string, error) {
+func fetchLatestVersion(ctx context.Context, httpClient *http.Client, repo string) (string, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "sogark-updater")
+
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -127,26 +124,21 @@ func fetchLatestVersion(repo string) (string, error) {
 		return "", fmt.Errorf(msg.UpdateHTTPErrVersion, resp.StatusCode, url)
 	}
 
-	var rel codebergRelease
+	var rel githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
 		return "", err
 	}
-
 	return rel.TagName, nil
 }
 
-// sogarkBinaryName returns the expected binary filename for this platform.
-func sogarkBinaryName() string {
-	name := fmt.Sprintf("sogark-%s-%s", runtime.GOOS, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
-		name += ".exe"
+func downloadFile(ctx context.Context, httpClient *http.Client, url, destPath string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
 	}
-	return name
-}
+	req.Header.Set("User-Agent", "sogark-updater")
 
-// downloadFile downloads a URL to a local file path.
-func downloadFile(url, destPath string) error {
-	resp, err := http.Get(url)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}

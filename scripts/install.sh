@@ -38,7 +38,7 @@ main() {
 
     platform="$(detect_platform)"
     binary_name="sogark-${platform}"
-    base_url="https://codeberg.org/${UPDATE_REPO}/releases/download"
+    base_url="https://github.com/${UPDATE_REPO}/releases/download"
 
     if [ "$VERSION" = "latest" ]; then
         # Fetch latest release tag from GitHub API

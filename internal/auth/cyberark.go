@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,8 +10,9 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // Client handles communication with the CyberArk PVWA REST API.
@@ -23,13 +25,15 @@ type Client struct {
 // NewClient creates a new CyberArk API client.
 func NewClient(baseURL string) *Client {
 	return &Client{
-		BaseURL:    baseURL,
-		HTTPClient: &http.Client{},
+		BaseURL: strings.TrimRight(baseURL, "/"),
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
 // Logon authenticates using a SAML response and stores the session token.
-func (c *Client) Logon(samlResponse string) error {
+func (c *Client) Logon(ctx context.Context, samlResponse string) error {
 	loginURL := c.BaseURL + "/API/auth/SAML/Logon/"
 
 	form := url.Values{}
@@ -37,7 +41,13 @@ func (c *Client) Logon(samlResponse string) error {
 	form.Set("concurrentSession", "true")
 	form.Set("SAMLResponse", samlResponse)
 
-	resp, err := c.HTTPClient.PostForm(loginURL, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, loginURL, strings.NewReader(form.Encode()))
+	if err != nil {
+		return fmt.Errorf(msg.AuthLogonFailed, err)
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return fmt.Errorf(msg.AuthLogonFailed, err)
 	}
@@ -79,7 +89,7 @@ type sshKeysResponse struct {
 }
 
 // FetchSSHKeys retrieves SSH keys from the MFA cache in the specified formats.
-func (c *Client) FetchSSHKeys(formats []string) (string, error) {
+func (c *Client) FetchSSHKeys(ctx context.Context, formats []string) (string, error) {
 	if c.Token == "" {
 		return "", fmt.Errorf(msg.AuthNotAuthenticated)
 	}
@@ -92,7 +102,7 @@ func (c *Client) FetchSSHKeys(formats []string) (string, error) {
 		return "", fmt.Errorf(msg.AuthSerializeErr, err)
 	}
 
-	req, err := http.NewRequest("POST", keysURL, bytes.NewReader(jsonBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, keysURL, bytes.NewReader(jsonBody))
 	if err != nil {
 		return "", fmt.Errorf(msg.AuthCreateRequestErr, err)
 	}

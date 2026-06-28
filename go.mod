@@ -1,4 +1,4 @@
-module github.com/sogei/cyberark-cli
+module github.com/Lotti/sogark
 
 go 1.25.0
 

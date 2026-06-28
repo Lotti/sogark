@@ -1,12 +1,8 @@
 package main
 
 import (
-	"fmt"
-
-	"github.com/sogei/cyberark-cli/internal/auth"
-	"github.com/sogei/cyberark-cli/internal/config"
-	"github.com/sogei/cyberark-cli/internal/keys"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	"github.com/Lotti/sogark/internal/config"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -38,48 +34,7 @@ func newLoginCmd() *cobra.Command {
 				formats = splitCSV(format)
 			}
 
-			samlResponse, err := auth.SAMLResponse(signalCtx, cfg.IDPURL, cfg.SAMLTimeoutMinutes)
-			if err != nil {
-				return err
-			}
-
-			client := auth.NewClient(cfg.PVWABaseURL)
-			if err := client.Logon(samlResponse); err != nil {
-				return err
-			}
-
-			fmt.Println(msg.DownloadingKeys)
-			raw, err := client.FetchSSHKeys(formats)
-			if err != nil {
-				return err
-			}
-
-			parsed, err := keys.Parse(raw)
-			if err != nil {
-				return err
-			}
-
-			keyDir, err := cfg.ResolveKeyDir()
-			if err != nil {
-				return err
-			}
-
-			results, err := keys.Save(parsed, keyDir, cfg.SSHKeyName, formats)
-			if err != nil {
-				return err
-			}
-
-			if err := keys.SaveTimestamp(keyDir); err != nil {
-				return err
-			}
-
-			fmt.Println(msg.KeysSaved)
-			for _, r := range results {
-				fmt.Printf("    %-40s (%s)\n", r.Path, r.Format)
-			}
-			fmt.Printf(msg.KeysExpiry, cfg.KeyTTLHours)
-
-			return nil
+			return doLoginWithFormats(cfg, formats)
 		},
 	}
 

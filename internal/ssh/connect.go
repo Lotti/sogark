@@ -11,11 +11,11 @@ import (
 
 // ConnectArgs holds the parameters for an SSH connection.
 type ConnectArgs struct {
-	Username   string // corporate user (e.g. mario.rossi)
-	TargetUser string // user on remote machine (e.g. root)
-	Host       string // target host IP or hostname
-	ProxyHost  string // PSMP proxy hostname
-	KeyPath    string // path to private key
+	Username   string   // corporate user (e.g. mario.rossi)
+	TargetUser string   // user on remote machine (e.g. root)
+	Host       string   // target host IP or hostname
+	ProxyHost  string   // PSMP proxy hostname
+	KeyPath    string   // path to private key
 	ExtraArgs  []string // additional SSH arguments
 }
 

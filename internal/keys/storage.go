@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // FileNames returns the key file names for a given base name.

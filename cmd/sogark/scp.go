@@ -6,20 +6,20 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sogei/cyberark-cli/internal/config"
-	"github.com/sogei/cyberark-cli/internal/hosts"
-	"github.com/sogei/cyberark-cli/internal/keys"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
-	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
+	"github.com/Lotti/sogark/internal/config"
+	"github.com/Lotti/sogark/internal/hosts"
+	"github.com/Lotti/sogark/internal/keys"
+	msg "github.com/Lotti/sogark/internal/messages"
+	sshpkg "github.com/Lotti/sogark/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
 func newScpCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "scp [sogark-flags] source... target",
-		Short: msg.SCPShort,
-		Long:  msg.SCPLong,
-		Example: msg.SCPExample,
+		Use:                "scp [sogark-flags] source... target",
+		Short:              msg.SCPShort,
+		Long:               msg.SCPLong,
+		Example:            msg.SCPExample,
 		DisableFlagParsing: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Manually parse sogark-specific flags; everything else goes to scp.
@@ -156,7 +156,7 @@ type scpFlags struct {
 	anyTag      string
 	forceLogin  bool
 	dryRun      bool
-	downloadDir string   // set when #tag download detected
+	downloadDir string // set when #tag download detected
 	passArgs    []string
 }
 

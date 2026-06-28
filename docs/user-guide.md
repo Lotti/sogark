@@ -117,7 +117,7 @@ default_scp_user: oper1
 | `tabby_path` | path | auto-detect | Percorso eseguibile Tabby |
 | `winscp_path` | path | auto-detect | Percorso eseguibile WinSCP |
 | `default_multi_backend` | stringa | `auto` | Backend default per `sogark multi` |
-| `update_repo` | stringa | — | Repository per self-update (es. `user/sogark`) |
+| `update_repo` | stringa | `Lotti/sogark` | Repository GitHub per self-update |
 
 ### Note sul `key_dir`
 
@@ -136,6 +136,12 @@ sogark config init                          # wizard interattivo
 sogark config show                          # mostra configurazione
 sogark config set <key> <value>             # modifica parametro
 sogark config wezterm                       # genera ~/.wezterm.lua per VM
+```
+
+### `sogark doctor`
+
+```bash
+sogark doctor                               # valida config e prerequisiti locali
 ```
 
 ### `sogark login`

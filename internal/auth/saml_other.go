@@ -9,9 +9,9 @@ import (
 	"runtime"
 	"time"
 
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
 	"github.com/go-rod/rod/lib/proto"
 )
 
@@ -24,6 +24,10 @@ func findBrowser() (string, error) {
 		return p, nil
 	}
 	return "", fmt.Errorf(msg.AuthBrowserNotFound)
+}
+
+func SAMLPrerequisite() (string, error) {
+	return findBrowser()
 }
 
 func findEdge() string {
@@ -112,6 +116,8 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 
 	for {
 		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
 		case <-deadline:
 			return "", fmt.Errorf(msg.AuthSAMLTimeout)
 		case <-ticker.C:

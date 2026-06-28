@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sogei/cyberark-cli/internal/config"
-	"github.com/sogei/cyberark-cli/internal/hosts"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	"github.com/Lotti/sogark/internal/config"
+	"github.com/Lotti/sogark/internal/hosts"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
 )
 

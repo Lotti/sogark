@@ -5,7 +5,7 @@ package hosts
 import (
 	"fmt"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"golang.org/x/sys/windows/registry"
 )
 

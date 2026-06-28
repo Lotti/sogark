@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sogei/cyberark-cli/internal/auth"
-	"github.com/sogei/cyberark-cli/internal/config"
-	"github.com/sogei/cyberark-cli/internal/hosts"
-	"github.com/sogei/cyberark-cli/internal/keys"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
-	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
+	"github.com/Lotti/sogark/internal/auth"
+	"github.com/Lotti/sogark/internal/config"
+	"github.com/Lotti/sogark/internal/hosts"
+	"github.com/Lotti/sogark/internal/keys"
+	msg "github.com/Lotti/sogark/internal/messages"
+	sshpkg "github.com/Lotti/sogark/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -159,18 +159,27 @@ func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bo
 
 // doLogin performs the full SAML login + key fetch flow.
 func doLogin(cfg *config.Config) error {
+	return doLoginWithFormats(cfg, cfg.KeyFormats)
+}
+
+func doLoginWithFormats(cfg *config.Config, formats []string) error {
+	normalizedFormats, err := config.NormalizeKeyFormats(formats)
+	if err != nil {
+		return err
+	}
+
 	samlResponse, err := auth.SAMLResponse(signalCtx, cfg.IDPURL, cfg.SAMLTimeoutMinutes)
 	if err != nil {
 		return err
 	}
 
 	client := auth.NewClient(cfg.PVWABaseURL)
-	if err := client.Logon(samlResponse); err != nil {
+	if err := client.Logon(signalCtx, samlResponse); err != nil {
 		return err
 	}
 
 	fmt.Println(msg.DownloadingKeys)
-	raw, err := client.FetchSSHKeys(cfg.KeyFormats)
+	raw, err := client.FetchSSHKeys(signalCtx, normalizedFormats)
 	if err != nil {
 		return err
 	}
@@ -185,7 +194,7 @@ func doLogin(cfg *config.Config) error {
 		return err
 	}
 
-	results, err := keys.Save(parsed, keyDir, cfg.SSHKeyName, cfg.KeyFormats)
+	results, err := keys.Save(parsed, keyDir, cfg.SSHKeyName, normalizedFormats)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ set -euo pipefail
 
 DRY_RUN=false
 BUMP=""
+RELEASE_REMOTE="${RELEASE_REMOTE:-github}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -21,6 +22,11 @@ done
 BRANCH=$(git branch --show-current)
 if [ "$BRANCH" != "main" ]; then
     echo "[!] Not on main branch (current: $BRANCH). Switch to main first."
+    exit 1
+fi
+
+if ! git remote get-url "$RELEASE_REMOTE" &>/dev/null; then
+    echo "[!] GitHub remote '$RELEASE_REMOTE' not found."
     exit 1
 fi
 
@@ -65,7 +71,7 @@ echo ""
 if $DRY_RUN; then
     echo "[i] Dry run — would run:"
     echo "    git tag $NEXT"
-    echo "    git push origin $NEXT"
+    echo "    git push $RELEASE_REMOTE $NEXT"
     exit 0
 fi
 
@@ -78,8 +84,8 @@ fi
 
 # Tag and push
 git tag "$NEXT"
-git push origin "$NEXT"
+git push "$RELEASE_REMOTE" "$NEXT"
 
 echo ""
 echo "[✓] Tag $NEXT pushed. CI will build and publish the release."
-echo "    Watch: https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]\(.*\)\.git/\1/')/actions"
+echo "    Watch: https://github.com/Lotti/sogark/actions"

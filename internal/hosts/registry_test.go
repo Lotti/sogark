@@ -319,70 +319,70 @@ func TestTagIndexRebuild(t *testing.T) {
 }
 
 func TestSearch_ByName(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "root", []string{"web"})
-r.Add("web2", "10.0.0.2", "root", []string{"web"})
-r.Add("db1", "10.0.0.3", "root", []string{"db"})
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "root", []string{"web"})
+	r.Add("web2", "10.0.0.2", "root", []string{"web"})
+	r.Add("db1", "10.0.0.3", "root", []string{"db"})
 
-results := r.Search("web*", "", nil)
-if len(results) != 2 {
-t.Errorf("Search(web*): got %d results, want 2", len(results))
-}
+	results := r.Search("web*", "", nil)
+	if len(results) != 2 {
+		t.Errorf("Search(web*): got %d results, want 2", len(results))
+	}
 }
 
 func TestSearch_ByIP(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "", nil)
-r.Add("web2", "10.0.1.1", "", nil)
-r.Add("db1", "192.168.0.1", "", nil)
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "", nil)
+	r.Add("web2", "10.0.1.1", "", nil)
+	r.Add("db1", "192.168.0.1", "", nil)
 
-results := r.Search("", "10.0.*", nil)
-if len(results) != 2 {
-t.Errorf("Search(ip=10.0.*): got %d results, want 2", len(results))
-}
+	results := r.Search("", "10.0.*", nil)
+	if len(results) != 2 {
+		t.Errorf("Search(ip=10.0.*): got %d results, want 2", len(results))
+	}
 }
 
 func TestSearch_ByTag(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "", []string{"web", "prod"})
-r.Add("web2", "10.0.0.2", "", []string{"web", "staging"})
-r.Add("db1", "10.0.0.3", "", []string{"db", "prod"})
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "", []string{"web", "prod"})
+	r.Add("web2", "10.0.0.2", "", []string{"web", "staging"})
+	r.Add("db1", "10.0.0.3", "", []string{"db", "prod"})
 
-results := r.Search("", "", []string{"prod"})
-if len(results) != 2 {
-t.Errorf("Search(tag=prod): got %d results, want 2", len(results))
-}
+	results := r.Search("", "", []string{"prod"})
+	if len(results) != 2 {
+		t.Errorf("Search(tag=prod): got %d results, want 2", len(results))
+	}
 }
 
 func TestSearch_Combined(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "", []string{"web", "prod"})
-r.Add("web2", "10.0.0.2", "", []string{"web", "staging"})
-r.Add("db1", "10.0.0.3", "", []string{"db", "prod"})
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "", []string{"web", "prod"})
+	r.Add("web2", "10.0.0.2", "", []string{"web", "staging"})
+	r.Add("db1", "10.0.0.3", "", []string{"db", "prod"})
 
-// name=web* AND tag=prod → only web1
-results := r.Search("web*", "", []string{"prod"})
-if len(results) != 1 || results[0].Name != "web1" {
-t.Errorf("Search(web*,prod): got %v, want [web1]", results)
-}
+	// name=web* AND tag=prod → only web1
+	results := r.Search("web*", "", []string{"prod"})
+	if len(results) != 1 || results[0].Name != "web1" {
+		t.Errorf("Search(web*,prod): got %v, want [web1]", results)
+	}
 }
 
 func TestSearch_Empty(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "", nil)
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "", nil)
 
-results := r.Search("", "", nil)
-if len(results) != 1 {
-t.Errorf("Search(empty): got %d, want 1", len(results))
-}
+	results := r.Search("", "", nil)
+	if len(results) != 1 {
+		t.Errorf("Search(empty): got %d, want 1", len(results))
+	}
 }
 
 func TestSearch_NoMatch(t *testing.T) {
-r := newTestRegistry(t)
-r.Add("web1", "10.0.0.1", "", nil)
+	r := newTestRegistry(t)
+	r.Add("web1", "10.0.0.1", "", nil)
 
-results := r.Search("nonexistent*", "", nil)
-if len(results) != 0 {
-t.Errorf("Search(nonexistent*): got %d, want 0", len(results))
-}
+	results := r.Search("nonexistent*", "", nil)
+	if len(results) != 0 {
+		t.Errorf("Search(nonexistent*): got %d, want 0", len(results))
+	}
 }

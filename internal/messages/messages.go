@@ -181,6 +181,22 @@ If the file already exists, prints instructions for manual configuration.`
 	ConfigWeztermEnabled       = "    Software rendering + clipboard enabled."
 	ConfigErrHomeDir           = "cannot determine home directory: %w"
 	ConfigErrWriteLua          = "error writing %s: %w"
+	ConfigValidationFailed     = "configuration validation failed:\n%s"
+	CfgKeyFormatsErr           = "key_formats must contain one or more of: OpenSSH, PEM, PPK"
+	CfgInvalidURL              = "must be an absolute http(s) URL"
+	CfgInvalidRepo             = "update_repo must be in owner/repo format"
+)
+
+// ── Doctor command ────────────────────────────────────────────────────────────
+
+const (
+	DoctorShort       = "Check configuration and runtime prerequisites"
+	DoctorLong        = "Validates the current configuration and checks the local tools required by sogark."
+	DoctorCheckOK     = "[+] %s: %s\n"
+	DoctorCheckInfo   = "[i] %s: %s\n"
+	DoctorCheckFailed = "[!] %s: %v\n"
+	DoctorHealthy     = "[✓] Doctor checks passed."
+	DoctorFoundIssues = "doctor found %d issue(s)"
 )
 
 // ── Main / root command ───────────────────────────────────────────────────────
@@ -198,14 +214,12 @@ const (
 	UpdateLong  = `Checks the latest version available on GitHub Releases
 and updates the current binary if necessary.
 
-Requires update_repo to be configured:
-  sogark config set update_repo user/sogark`
+By default it uses the official GitHub repository:
+  Lotti/sogark`
 	UpdateExample = `  sogark update              # update to the latest version
   sogark update --check      # check without updating
   sogark update --version v1.2.0  # install specific version
   sogark update --force      # force re-download even if up to date`
-	UpdateErrNotConfigured = "update_repo not configured.\nRun:\n" +
-		"  sogark config set update_repo user/sogark"
 	UpdateCheckingVersion  = "[*] Checking latest available version..."
 	UpdateErrFetchVersion  = "error fetching version: %w"
 	UpdateCurrentVersion   = "[*] Current version: %s\n"
@@ -218,6 +232,7 @@ Requires update_repo to be configured:
 	UpdateErrChmod         = "chmod error: %w"
 	UpdateErrReplace       = "error replacing binary: %w"
 	UpdateSuccess          = "[✓] Updated to %s\n"
+	UpdateDeferredSuccess  = "[✓] Update to %s scheduled. The new binary will replace the current one after this process exits.\n"
 	UpdateFlagVersion      = "specific version to install (e.g. v1.2.0)"
 	UpdateFlagForce        = "force download even if version matches"
 	UpdateFlagCheck        = "check without updating"

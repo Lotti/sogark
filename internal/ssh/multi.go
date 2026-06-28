@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // MultiArgs holds parameters for a multi-pane session.

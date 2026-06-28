@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +55,7 @@ func main() {
 		newLoginCmd(),
 		newKeysCmd(),
 		newConfigCmd(),
+		newDoctorCmd(),
 		newHostsCmd(),
 		newMultiCmd(),
 		newMobaCmd(),

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 const timestampFile = ".key_timestamp"

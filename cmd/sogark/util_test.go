@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
+	sshpkg "github.com/Lotti/sogark/internal/ssh"
 )
 
 func TestFormatHostNames(t *testing.T) {

@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/sogei/cyberark-cli/internal/config"
-	"github.com/sogei/cyberark-cli/internal/keys"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
-	sshpkg "github.com/sogei/cyberark-cli/internal/ssh"
+	"github.com/Lotti/sogark/internal/config"
+	"github.com/Lotti/sogark/internal/keys"
+	msg "github.com/Lotti/sogark/internal/messages"
+	sshpkg "github.com/Lotti/sogark/internal/ssh"
 	"github.com/spf13/cobra"
 )
 

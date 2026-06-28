@@ -367,10 +367,11 @@ sogark update --version v1.2.0      # installa versione specifica
 sogark update --force               # forza re-download
 ```
 
-Richiede `update_repo` configurato:
+Per default usa GitHub Releases del repository ufficiale `Lotti/sogark`.
+Se vuoi puntare a un fork GitHub:
 
 ```bash
-sogark config set update_repo user/sogark
+sogark config set update_repo your-user/sogark
 ```
 
 | Flag | Descrizione |
@@ -426,7 +427,7 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | `winscp_path` | path | auto-detect | Percorso WinSCP.exe |
 | `filezilla_path` | path | auto-detect | Percorso filezilla |
 | `default_multi_backend` | stringa | `auto` | Backend default per multi |
-| `update_repo` | stringa | — | Repository per self-update (es. `user/sogark`) |
+| `update_repo` | stringa | `Lotti/sogark` | Repository GitHub per self-update |
 
 ---
 
@@ -469,17 +470,10 @@ svu current         # versione corrente
 Per creare una release:
 
 ```bash
-git tag $(svu next)
-git push --tags
+make release
 ```
 
-La CI su GitHub (`.forgejo/workflows/release.yml`) compila e pubblica automaticamente.
-
-### Creazione asset di release locale
-
-```bash
-make release-assets UPDATE_REPO=user/sogark
-```
+La CI GitHub in [.github/workflows/release.yml](/Users/lotti/repos/sogei/sogark/.github/workflows/release.yml:1) compila e pubblica automaticamente.
 
 ## Test
 

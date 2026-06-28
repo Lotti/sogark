@@ -3,12 +3,12 @@ package hosts
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"gopkg.in/yaml.v3"
 )
 

@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sogei/cyberark-cli/internal/config"
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	"github.com/Lotti/sogark/internal/config"
+	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
 )
 
@@ -53,7 +53,15 @@ func newConfigInitCmd() *cobra.Command {
 			cfg.DefaultSSHUser = prompt(reader, msg.ConfigInitSSHUser, cfg.DefaultSSHUser)
 			cfg.DefaultSCPUser = prompt(reader, msg.ConfigInitSCPUser, cfg.DefaultSCPUser)
 			formatsStr := prompt(reader, msg.ConfigInitKeyFormats, strings.Join(cfg.KeyFormats, ","))
-			cfg.KeyFormats = splitCSV(formatsStr)
+			normalizedFormats, err := config.NormalizeKeyFormats(splitCSV(formatsStr))
+			if err != nil {
+				return err
+			}
+			cfg.KeyFormats = normalizedFormats
+
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
 
 			if err := cfg.Save(); err != nil {
 				return err
@@ -75,7 +83,7 @@ func newConfigSetCmd() *cobra.Command {
   sogark config set key_dir /opt/keys`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := config.Load()
+			cfg, err := config.LoadOrDefaults()
 			if err != nil {
 				return err
 			}

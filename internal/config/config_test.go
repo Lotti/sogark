@@ -72,11 +72,60 @@ func TestSet_ValidKeys(t *testing.T) {
 
 func TestSet_KeyFormats(t *testing.T) {
 	cfg := Defaults()
-	if err := cfg.Set("key_formats", "PEM, OpenSSH"); err != nil {
+	if err := cfg.Set("key_formats", "pem, openssh, pem"); err != nil {
 		t.Fatalf("Set key_formats error: %v", err)
 	}
 	if len(cfg.KeyFormats) != 2 || cfg.KeyFormats[0] != "PEM" || cfg.KeyFormats[1] != "OpenSSH" {
 		t.Errorf("key_formats: got %v, want [PEM OpenSSH]", cfg.KeyFormats)
+	}
+}
+
+func TestValidate(t *testing.T) {
+	cfg := Defaults()
+	cfg.Username = "mario.rossi"
+	cfg.PVWABaseURL = "https://cyberark.example.com/PasswordVault"
+	cfg.IDPURL = "https://idp.example.com/login"
+	cfg.ProxyHost = "psmp.example.com"
+	cfg.DefaultSSHUser = "root"
+	cfg.SSHKeyName = "id_sogark"
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("Validate() error: %v", err)
+	}
+}
+
+func TestValidate_InvalidConfig(t *testing.T) {
+	cfg := Defaults()
+	cfg.PVWABaseURL = "notaurl"
+	cfg.IDPURL = "still-not-a-url"
+	cfg.SSHKeyName = "nested/path"
+	cfg.KeyFormats = []string{"bad"}
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("Validate() should fail")
+	}
+
+	want := []string{"username", "pvwa_base_url", "idp_url", "proxy_host", "default_ssh_user", "ssh_key_name", "key_formats"}
+	for _, item := range want {
+		if !strings.Contains(err.Error(), item) {
+			t.Errorf("Validate() error missing %q: %v", item, err)
+		}
+	}
+}
+
+func TestLoadOrDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+	origHome := os.Getenv("HOME")
+	os.Setenv("HOME", tmpDir)
+	defer os.Setenv("HOME", origHome)
+
+	cfg, err := LoadOrDefaults()
+	if err != nil {
+		t.Fatalf("LoadOrDefaults() error: %v", err)
+	}
+	if cfg.UpdateRepo != DefaultUpdateRepo {
+		t.Fatalf("UpdateRepo: got %q, want %q", cfg.UpdateRepo, DefaultUpdateRepo)
 	}
 }
 

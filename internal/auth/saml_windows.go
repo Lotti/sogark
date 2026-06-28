@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	msg "github.com/sogei/cyberark-cli/internal/messages"
+	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 // findPowerShell locates powershell.exe in PATH.
@@ -18,6 +18,10 @@ func findPowerShell() (string, error) {
 		return p, nil
 	}
 	return "", fmt.Errorf(msg.AuthPSNotFound)
+}
+
+func SAMLPrerequisite() (string, error) {
+	return findPowerShell()
 }
 
 // SAMLResponse captures the SAML response token using a WinForms embedded WebBrowser.
