@@ -35,15 +35,15 @@ version:
 next-version:
 	@svu next 2>/dev/null || echo "v0.1.0"
 
-# --- Release (local, for CI) ---
-# Creates release assets in bin/ for manual upload.
-.PHONY: release-assets
+# --- Release ---
+# Tag and push:  make release
+# Dry run:        make release-dry
+# Force bump:     make release BUMP=minor
 
-release-assets: build-all
-	@echo "[*] Generating release assets for $(VERSION)..."
-	@echo "$(VERSION)" > bin/version.txt
-	@# Generate install scripts with baked-in update_repo
-	@sed 's|__UPDATE_REPO__|$(UPDATE_REPO)|g' scripts/install.sh > bin/install.sh
-	@sed 's|__UPDATE_REPO__|$(UPDATE_REPO)|g' scripts/install.ps1 > bin/install.ps1
-	@ls -lh bin/
-	@echo "[✓] Assets ready in bin/"
+.PHONY: release release-dry
+
+release:
+	@bash scripts/release.sh
+
+release-dry:
+	@bash scripts/release.sh --dry-run
