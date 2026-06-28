@@ -37,18 +37,18 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 - **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell 5.1 built-in, usato per SAML/MFA e rilevamento processi)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
 
-### Da Codeberg (consigliato)
+### Da GitHub (consigliato)
 
 **macOS / Linux:**
 
 ```bash
-curl -fsSL https://codeberg.org/lotti/sogark/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/Lotti/sogark/releases/latest/download/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 
 ```powershell
-irm https://codeberg.org/lotti/sogark/releases/latest/download/install.ps1 | iex
+irm https://github.com/Lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
 Installa in `~/.sogark/bin/` e aggiunge automaticamente al PATH.
@@ -62,7 +62,7 @@ VERSION=v1.2.0 curl -fsSL .../install.sh | bash
 ### Da sorgente
 
 ```bash
-git clone https://codeberg.org/lotti/sogark.git
+git clone https://github.com/Lotti/sogark.git
 cd sogark
 make build          # → bin/sogark
 make install        # → /usr/local/bin/sogark
@@ -335,7 +335,7 @@ sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" --tag prod
 
 ### sogark update
 
-Aggiorna sogark all'ultima versione disponibile su Codeberg.
+Aggiorna sogark all'ultima versione disponibile su GitHub.
 
 ```bash
 sogark update                       # aggiorna all'ultima versione
@@ -449,7 +449,7 @@ git tag $(svu next)
 git push --tags
 ```
 
-La CI su Codeberg (`.forgejo/workflows/release.yml`) compila e pubblica automaticamente.
+La CI su GitHub (`.forgejo/workflows/release.yml`) compila e pubblica automaticamente.
 
 ### Creazione asset di release locale
 

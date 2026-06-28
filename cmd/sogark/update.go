@@ -62,7 +62,7 @@ func newUpdateCmd() *cobra.Command {
 			}
 
 			binaryName := sogarkBinaryName()
-			downloadURL := fmt.Sprintf("https://codeberg.org/%s/releases/download/%s/%s",
+			downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s",
 				cfg.UpdateRepo, targetVersion, binaryName)
 
 			fmt.Printf("[*] Download: %s\n", downloadURL)
@@ -114,9 +114,9 @@ type codebergRelease struct {
 	TagName string `json:"tag_name"`
 }
 
-// fetchLatestVersion queries the Codeberg API for the latest release tag.
+// fetchLatestVersion queries the GitHub API for the latest release tag.
 func fetchLatestVersion(repo string) (string, error) {
-	url := fmt.Sprintf("https://codeberg.org/api/v1/repos/%s/releases/latest", repo)
+	url := fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err

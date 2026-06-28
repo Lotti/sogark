@@ -194,8 +194,8 @@ const (
 // ── Update command ────────────────────────────────────────────────────────────
 
 const (
-	UpdateShort = "Update sogark to the latest version from Codeberg"
-	UpdateLong  = `Checks the latest version available on Codeberg Releases
+	UpdateShort = "Update sogark to the latest version"
+	UpdateLong  = `Checks the latest version available on GitHub Releases
 and updates the current binary if necessary.
 
 Requires update_repo to be configured:

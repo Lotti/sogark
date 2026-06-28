@@ -25,13 +25,13 @@
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://codeberg.org/lotti/sogark/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/Lotti/sogark/releases/latest/download/install.sh | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://codeberg.org/lotti/sogark/releases/latest/download/install.ps1 | iex
+irm https://github.com/Lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
 Lo script scarica il binario in `~/.sogark/bin/`, aggiunge la directory al PATH e configura automaticamente `update_repo` per gli aggiornamenti futuri.

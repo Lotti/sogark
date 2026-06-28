@@ -1,5 +1,5 @@
 # sogark installer for Windows (PowerShell)
-# Usage: irm https://codeberg.org/lotti/sogark/releases/download/<version>/install.ps1 | iex
+# Usage: irm https://github.com/Lotti/sogark/releases/download/<version>/install.ps1 | iex
 # Specific version: $env:VERSION='v1.2.0'; irm ... | iex
 
 param(
@@ -18,12 +18,12 @@ function Main {
     Write-Host ""
 
     $binaryName = "sogark-windows-amd64.exe"
-    $baseUrl = "https://codeberg.org/$UpdateRepo/releases/download"
+    $baseUrl = "https://github.com/$UpdateRepo/releases/download"
 
     # Determine version
     if ($Version -eq "latest") {
         try {
-            $apiUrl = "https://codeberg.org/api/v1/repos/$UpdateRepo/releases/latest"
+            $apiUrl = "https://api.github.com/repos/$UpdateRepo/releases/latest"
             $release = Invoke-RestMethod -Uri $apiUrl
             $Version = $release.tag_name
             Write-Host "[*] Versione: $Version (latest)"

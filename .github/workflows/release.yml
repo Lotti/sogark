@@ -36,12 +36,10 @@ jobs:
           sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.ps1 > bin/install.ps1
 
       - name: Create release and upload assets
-        uses: https://code.forgejo.org/actions/forgejo-release@v2
+        uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.version.outputs.version }}
-          title: ${{ steps.version.outputs.version }}
-          notes: "Release ${{ steps.version.outputs.version }}"
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
           files: |
             bin/sogark-darwin-arm64
             bin/sogark-darwin-amd64

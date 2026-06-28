@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # sogark installer for macOS/Linux
-# Usage: curl -fsSL https://codeberg.org/lotti/sogark/releases/download/<version>/install.sh | bash
+# Usage: curl -fsSL https://github.com/Lotti/sogark/releases/download/<version>/install.sh | bash
 # Override version: VERSION=v1.2.0 curl -fsSL ... | bash
 
 UPDATE_REPO="__UPDATE_REPO__"
@@ -41,8 +41,8 @@ main() {
     base_url="https://codeberg.org/${UPDATE_REPO}/releases/download"
 
     if [ "$VERSION" = "latest" ]; then
-        # Fetch latest release tag from Codeberg API
-        local api_url="https://codeberg.org/api/v1/repos/${UPDATE_REPO}/releases/latest"
+        # Fetch latest release tag from GitHub API
+        local api_url="https://api.github.com/repos/${UPDATE_REPO}/releases/latest"
         VERSION="$(curl -fsSL "$api_url" 2>/dev/null | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 || echo "")"
         if [ -z "$VERSION" ]; then
             echo "[!] Impossibile determinare l'ultima versione. Specificare VERSION= manualmente." >&2
