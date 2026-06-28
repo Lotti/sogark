@@ -17,7 +17,20 @@ function Main {
     Write-Host "[*] Installazione sogark..." -ForegroundColor Cyan
     Write-Host ""
 
-    $binaryName = "sogark-windows-amd64.exe"
+    # Detect architecture for Windows
+    $arch = if ([Environment]::Is64BitOperatingSystem) {
+        $archName = (Get-WmiObject Win32_Processor).Architecture
+        if ($archName -eq 12 -and [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -eq [System.Runtime.InteropServices.RuntimeInformation]::Architecture.Arm64) {
+            "arm64"
+        } else {
+            "amd64"
+        }
+    } else {
+        Write-Host "[!] Architettura 32-bit non supportata." -ForegroundColor Red
+        exit 1
+    }
+
+    $binaryName = "sogark-windows-$arch.exe"
     $baseUrl = "https://github.com/$UpdateRepo/releases/download"
 
     # Determine version

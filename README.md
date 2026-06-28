@@ -79,7 +79,9 @@ make build-all
 | `sogark-darwin-arm64` | macOS Apple Silicon |
 | `sogark-darwin-amd64` | macOS Intel |
 | `sogark-linux-amd64` | Linux x86_64 |
+| `sogark-linux-arm64` | Linux ARM64 |
 | `sogark-windows-amd64.exe` | Windows x86_64 |
+| `sogark-windows-arm64.exe` | Windows ARM64 |
 
 ### Aggiornamento
 

@@ -24,8 +24,13 @@ func main() {
 	signalCtx, cancel = signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	// Separate channel for the interrupt message — this way the goroutine
+	// only prints on a real OS signal, not on the deferred cancel() at exit.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
-		<-signalCtx.Done()
+		<-sigCh
 		fmt.Println(msg.RootInterrupted)
 	}()
 

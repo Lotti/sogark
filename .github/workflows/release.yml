@@ -44,7 +44,9 @@ jobs:
             bin/sogark-darwin-arm64
             bin/sogark-darwin-amd64
             bin/sogark-linux-amd64
+            bin/sogark-linux-arm64
             bin/sogark-windows-amd64.exe
+            bin/sogark-windows-arm64.exe
             bin/version.txt
             bin/install.sh
             bin/install.ps1
