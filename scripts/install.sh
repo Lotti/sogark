@@ -43,7 +43,7 @@ main() {
     if [ "$VERSION" = "latest" ]; then
         # Fetch latest release tag from GitHub API
         local api_url="https://api.github.com/repos/${UPDATE_REPO}/releases/latest"
-        VERSION="$(curl -fsSL "$api_url" 2>/dev/null | grep -o '"tag_name":"[^"]*' | cut -d'"' -f4 || echo "")"
+        VERSION="$(curl -fsSL "$api_url" 2>/dev/null | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1 || echo "")"
         if [ -z "$VERSION" ]; then
             echo "[!] Impossibile determinare l'ultima versione. Specificare VERSION= manualmente." >&2
             exit 1
