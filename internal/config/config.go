@@ -31,7 +31,7 @@ var ValidKeys = []string{
 	"key_dir", "key_formats", "default_ssh_user", "default_scp_user",
 	"ssh_key_name", "key_ttl_hours", "saml_timeout_minutes",
 	"moba_path", "moba_max_sessions", "tabby_path", "winscp_path",
-	"default_multi_backend", "update_repo",
+	"default_multi_backend", "update_repo", "filezilla_path",
 }
 
 type Config struct {
@@ -52,6 +52,7 @@ type Config struct {
 	WinSCPPath         string   `yaml:"winscp_path,omitempty"`
 	DefaultMultiBackend string  `yaml:"default_multi_backend,omitempty"`
 	UpdateRepo           string  `yaml:"update_repo,omitempty"`
+	FileZillaPath        string  `yaml:"filezilla_path,omitempty"`
 }
 
 // Dir returns the sogark configuration directory (~/.sogark).
@@ -187,6 +188,8 @@ func (c *Config) Set(key, value string) error {
 		c.DefaultMultiBackend = value
 	case "update_repo":
 		c.UpdateRepo = value
+	case "filezilla_path":
+		c.FileZillaPath = value
 	default:
 		return fmt.Errorf(msg.CfgUnknownKey, key, strings.Join(ValidKeys, ", "))
 	}
@@ -254,6 +257,9 @@ saml_timeout_minutes:  %d`,
 	}
 	if c.UpdateRepo != "" {
 		result += fmt.Sprintf("\nupdate_repo:           %s", c.UpdateRepo)
+	}
+	if c.FileZillaPath != "" {
+		result += fmt.Sprintf("\nfilezilla_path:        %s", c.FileZillaPath)
 	}
 	return result
 }

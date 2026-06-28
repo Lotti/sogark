@@ -20,6 +20,7 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
   - [sogark multi](#sogark-multi)
   - [sogark moba](#sogark-moba)
   - [sogark winscp](#sogark-winscp)
+  - [sogark filezilla](#sogark-filezilla)
   - [sogark update](#sogark-update)
 - [Come funziona](#come-funziona)
 - [Parametri di configurazione](#parametri-di-configurazione)
@@ -335,6 +336,26 @@ sogark winscp --winscp-path "C:\WinSCP\WinSCP.exe" --tag prod
 
 ---
 
+### sogark filezilla
+
+Configura il Site Manager di FileZilla con i PSMP hosts selezionati e avvia FileZilla.
+Usa chiavi OpenSSH su macOS/Linux, PPK su Windows.
+
+```bash
+sogark filezilla 10.1.2.3
+sogark filezilla --tag production
+sogark filezilla --any-tag web,db
+sogark filezilla --filezilla-path "/opt/filezilla/bin/filezilla" --tag prod
+```
+
+| Flag | Descrizione |
+|------|-------------|
+| `--tag` | Seleziona host AND |
+| `--any-tag` | Seleziona host OR |
+| `--filezilla-path` | Percorso filezilla |
+
+---
+
 ### sogark update
 
 Aggiorna sogark all'ultima versione disponibile su GitHub.
@@ -403,6 +424,7 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | `moba_max_sessions` | intero | `20` | Limite tab MobaXterm |
 | `tabby_path` | path | auto-detect | Percorso Tabby |
 | `winscp_path` | path | auto-detect | Percorso WinSCP.exe |
+| `filezilla_path` | path | auto-detect | Percorso filezilla |
 | `default_multi_backend` | stringa | `auto` | Backend default per multi |
 | `update_repo` | stringa | — | Repository per self-update (es. `user/sogark`) |
 

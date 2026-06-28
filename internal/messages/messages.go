@@ -389,7 +389,29 @@ const (
 	SSHWinSCPOpening      = "[+] Opening WinSCP with %d sessions...\n"
 	SSHWinSCPSessionErr   = "[!] Error opening session for %s: %v\n"
 
+	// FileZilla
+	FileZillaNotFound     = "FileZilla not found"
+	FileZillaConfigured   = "[+] FileZilla configured with %d sessions. Launching...\n"
+	FileZillaMkdirErr     = "error creating directory %s: %w"
+	FileZillaXMLMarshalErr = "error generating FileZilla config: %w"
+	FileZillaWriteErr     = "error writing %s: %w"
+
 	PuTTYCreateSessionErr = "error creating PuTTY session: %w"
 	PuTTYSetValueErr      = "error setting PuTTY value %s: %w"
 	PuTTYDeleteSessionErr = "error deleting PuTTY session: %w"
+)
+
+// ── FileZilla command ──────────────────────────────────────────────────────
+
+const (
+	FileZillaShort = "Configure and open FileZilla with PSMP hosts"
+	FileZillaLong  = `Generates sitemanager.xml entries for the selected hosts and launches FileZilla.
+Each host gets an SFTP session configured to use the PSMP proxy.
+
+Key format: OpenSSH on macOS/Linux, PPK on Windows.`
+	FileZillaFlagTag       = "filter by tag (AND)"
+	FileZillaFlagAnyTag    = "filter by tag (OR)"
+	FileZillaFlagPath      = "path to filezilla executable"
+	FileZillaNotFoundHint  = "Set the path with:\n" +
+		"  sogark config set filezilla_path \"/path/to/filezilla\""
 )
