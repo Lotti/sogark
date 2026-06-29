@@ -3,6 +3,7 @@ package keys
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -133,6 +134,12 @@ func TestSave_FilePermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 	perm := info.Mode().Perm()
+	if runtime.GOOS == "windows" {
+		if perm == 0 {
+			t.Errorf("file permissions should not be zero on Windows")
+		}
+		return
+	}
 	if perm != 0600 {
 		t.Errorf("file permissions: got %o, want 0600", perm)
 	}

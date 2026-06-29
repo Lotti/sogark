@@ -3,9 +3,20 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+func setTestHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	if runtime.GOOS == "windows" {
+		t.Setenv("USERPROFILE", dir)
+		t.Setenv("HOMEDRIVE", "")
+		t.Setenv("HOMEPATH", "")
+	}
+}
 
 func TestDefaults(t *testing.T) {
 	cfg := Defaults()
@@ -116,9 +127,7 @@ func TestValidate_InvalidConfig(t *testing.T) {
 
 func TestLoadOrDefaults(t *testing.T) {
 	tmpDir := t.TempDir()
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	setTestHome(t, tmpDir)
 
 	cfg, err := LoadOrDefaults()
 	if err != nil {
@@ -153,9 +162,7 @@ func TestSet_KeyTTLHours_Invalid(t *testing.T) {
 func TestSaveAndLoad(t *testing.T) {
 	// Use a temp dir as HOME
 	tmpDir := t.TempDir()
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	setTestHome(t, tmpDir)
 
 	cfg := Defaults()
 	cfg.Username = "test.user"
@@ -180,9 +187,7 @@ func TestSaveAndLoad(t *testing.T) {
 
 func TestLoad_NotFound(t *testing.T) {
 	tmpDir := t.TempDir()
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	setTestHome(t, tmpDir)
 
 	_, err := Load()
 	if err == nil {
@@ -271,9 +276,7 @@ func TestShow_MobaPath(t *testing.T) {
 
 func TestSaveAndLoad_MobaPath(t *testing.T) {
 	tmpDir := t.TempDir()
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	setTestHome(t, tmpDir)
 
 	cfg := Defaults()
 	cfg.Username = "test"
@@ -319,9 +322,7 @@ func TestSplitAndTrim(t *testing.T) {
 
 func TestSave_CreatesDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
-	origHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", origHome)
+	setTestHome(t, tmpDir)
 
 	cfg := Defaults()
 	if err := cfg.Save(); err != nil {
