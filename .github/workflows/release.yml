@@ -50,13 +50,12 @@ jobs:
           )
 
       - name: Install cosign
-        uses: sigstore/cosign-installer@v4
+        uses: sigstore/cosign-installer@v4.1.0
 
       - name: Sign checksums
         run: |
           cosign sign-blob --yes \
-            --output-signature bin/checksums.txt.sig \
-            --output-certificate bin/checksums.txt.pem \
+            --bundle bin/checksums.txt.bundle \
             bin/checksums.txt
 
       - name: Create release and upload assets
@@ -73,7 +72,6 @@ jobs:
             bin/sogark-windows-arm64.exe
             bin/version.txt
             bin/checksums.txt
-            bin/checksums.txt.sig
-            bin/checksums.txt.pem
+            bin/checksums.txt.bundle
             bin/install.sh
             bin/install.ps1
