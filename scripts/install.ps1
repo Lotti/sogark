@@ -13,6 +13,43 @@ if (-not $Version) { $Version = "latest" }
 
 $InstallDir = Join-Path $env:USERPROFILE ".sogark\bin"
 
+function Get-ExpectedChecksum {
+    param(
+        [Parameter(Mandatory = $true)][string]$ChecksumsPath,
+        [Parameter(Mandatory = $true)][string]$FileName
+    )
+
+    foreach ($line in Get-Content -LiteralPath $ChecksumsPath) {
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+
+        $parts = $line -split '\s+'
+        if ($parts.Length -lt 2) {
+            continue
+        }
+
+        $candidate = $parts[-1].TrimStart('*')
+        if ($candidate -eq $FileName) {
+            return $parts[0].ToLowerInvariant()
+        }
+    }
+
+    throw "Checksum non trovata per $FileName"
+}
+
+function Test-FileChecksum {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Expected
+    )
+
+    $actual = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($actual -ne $Expected.ToLowerInvariant()) {
+        throw "Checksum non valida. Atteso: $Expected - Trovato: $actual"
+    }
+}
+
 function Main {
     Write-Host "[*] Installazione sogark..." -ForegroundColor Cyan
     Write-Host ""
@@ -39,6 +76,7 @@ function Main {
     }
 
     $downloadUrl = "$baseUrl/$Version/$binaryName"
+    $checksumsUrl = "$baseUrl/$Version/checksums.txt"
     Write-Host "[*] Download: $downloadUrl"
     Write-Host ""
 
@@ -50,20 +88,28 @@ function Main {
     # Download
     $destPath = Join-Path $InstallDir "sogark.exe"
     $tmpPath = Join-Path $InstallDir "sogark.exe.tmp"
+    $checksumsPath = Join-Path $InstallDir "checksums.txt.tmp"
 
     try {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $tmpPath -UseBasicParsing
+        Invoke-WebRequest -Uri $checksumsUrl -OutFile $checksumsPath -UseBasicParsing
+        $expectedChecksum = Get-ExpectedChecksum -ChecksumsPath $checksumsPath -FileName $binaryName
+        Write-Host "[*] Verifica checksum..." -ForegroundColor Cyan
+        Test-FileChecksum -Path $tmpPath -Expected $expectedChecksum
+        Unblock-File -LiteralPath $tmpPath -ErrorAction SilentlyContinue
     } catch {
         Write-Host "[!] Errore download: $_" -ForegroundColor Red
-        Remove-Item -Path $tmpPath -ErrorAction SilentlyContinue
+        Remove-Item -Path $tmpPath, $checksumsPath -ErrorAction SilentlyContinue
         exit 1
     }
+    Remove-Item -Path $checksumsPath -ErrorAction SilentlyContinue
 
     # Replace existing binary
     if (Test-Path $destPath) {
         Remove-Item -Path $destPath -Force
     }
     Move-Item -Path $tmpPath -Destination $destPath -Force
+    Unblock-File -LiteralPath $destPath -ErrorAction SilentlyContinue
 
     Write-Host "[✓] sogark installato in $destPath" -ForegroundColor Green
 

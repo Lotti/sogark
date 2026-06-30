@@ -35,6 +35,10 @@ if (Test-Path -LiteralPath $Target) {
     Remove-Item -LiteralPath $Target -Force
 }
 Move-Item -LiteralPath $Source -Destination $Target -Force
+try {
+    Unblock-File -LiteralPath $Target -ErrorAction Stop
+} catch {
+}
 `, psSingleQuote(execPath), psSingleQuote(tmpPath), os.Getpid())
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0600); err != nil {

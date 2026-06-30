@@ -52,7 +52,9 @@ curl -fsSL https://github.com/Lotti/sogark/releases/latest/download/install.sh |
 irm https://github.com/Lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
-Installa in `~/.sogark/bin/` e aggiunge automaticamente al PATH.
+Installa in `~/.sogark/bin/`, verifica il checksum SHA-256 del binario scaricato, prova a rimuovere i metadati di quarantena/MOTW dove possibile e aggiunge automaticamente al PATH.
+
+Per ridurre i warning di Windows/macOS, preferisci sempre questi script di installazione o `sogark update` invece di scaricare e lanciare manualmente il `.exe` dal browser.
 
 Per installare una versione specifica:
 
@@ -93,6 +95,16 @@ sogark update --version v1.2.0  # versione specifica
 ```
 
 Richiede `update_repo` configurato (impostato automaticamente dallo script di installazione).
+
+### Verifica release
+
+Ogni release pubblica anche:
+
+- `checksums.txt`
+- `checksums.txt.sig`
+- `checksums.txt.pem`
+
+Gli script di installazione e `sogark update` verificano automaticamente il checksum SHA-256 del binario prima di sostituire quello locale. I file `.sig` e `.pem` permettono anche una verifica Sigstore keyless della release in CI o manualmente.
 
 ---
 
@@ -474,6 +486,7 @@ make release
 ```
 
 La CI GitHub in [.github/workflows/release.yml](/Users/lotti/repos/sogei/sogark/.github/workflows/release.yml:1) compila e pubblica automaticamente.
+In più genera `checksums.txt` e lo firma con Sigstore keyless usando l'identità OIDC del workflow GitHub.
 
 ## Test
 

@@ -9,6 +9,40 @@ UPDATE_REPO="__UPDATE_REPO__"
 VERSION="${VERSION:-latest}"
 INSTALL_DIR="${HOME}/.sogark/bin"
 
+verify_checksum() {
+    local file_path="$1"
+    local expected="$2"
+    local actual
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual="$(sha256sum "$file_path" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+        actual="$(shasum -a 256 "$file_path" | awk '{print $1}')"
+    else
+        echo "[!] Nessun tool SHA-256 disponibile (sha256sum/shasum). Verifica checksum saltata." >&2
+        return 0
+    fi
+
+    if [ "$actual" != "$expected" ]; then
+        echo "[!] Checksum non valida per ${file_path}" >&2
+        echo "    atteso: ${expected}" >&2
+        echo "    trovato: ${actual}" >&2
+        return 1
+    fi
+}
+
+clear_quarantine() {
+    local file_path="$1"
+
+    if [ "$(uname -s)" != "Darwin" ]; then
+        return 0
+    fi
+
+    if command -v xattr >/dev/null 2>&1; then
+        xattr -d com.apple.quarantine "$file_path" >/dev/null 2>&1 || true
+    fi
+}
+
 # Detect OS and architecture
 detect_platform() {
     local os arch
@@ -31,7 +65,7 @@ detect_platform() {
 }
 
 main() {
-    local platform binary_name base_url download_url
+    local platform binary_name base_url download_url checksums_url checksums_tmp expected_checksum
 
     echo "[*] Installazione sogark..."
     echo ""
@@ -51,6 +85,7 @@ main() {
     fi
 
     download_url="${base_url}/${VERSION}/${binary_name}"
+    checksums_url="${base_url}/${VERSION}/checksums.txt"
 
     echo "[*] Versione: ${VERSION}"
     echo "[*] Piattaforma: ${platform}"
@@ -68,9 +103,31 @@ main() {
         exit 1
     fi
 
+    checksums_tmp="${INSTALL_DIR}/checksums.txt.tmp"
+    if ! curl -fsSL -o "${checksums_tmp}" "${checksums_url}"; then
+        echo "[!] Impossibile scaricare checksums.txt" >&2
+        rm -f "${tmp_file}" "${checksums_tmp}"
+        exit 1
+    fi
+
+    expected_checksum="$(awk -v name="${binary_name}" '$2 == name || $2 == "*" name {print $1; exit}' "${checksums_tmp}")"
+    if [ -z "${expected_checksum}" ]; then
+        echo "[!] Checksum non trovata per ${binary_name}" >&2
+        rm -f "${tmp_file}" "${checksums_tmp}"
+        exit 1
+    fi
+
+    echo "[*] Verifica checksum..."
+    if ! verify_checksum "${tmp_file}" "${expected_checksum}"; then
+        rm -f "${tmp_file}" "${checksums_tmp}"
+        exit 1
+    fi
+    rm -f "${checksums_tmp}"
+
     # Install
     chmod 755 "${tmp_file}"
     mv "${tmp_file}" "${INSTALL_DIR}/sogark"
+    clear_quarantine "${INSTALL_DIR}/sogark"
 
     echo ""
     echo "[✓] sogark installato in ${INSTALL_DIR}/sogark"

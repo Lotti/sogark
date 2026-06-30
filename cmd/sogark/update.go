@@ -78,6 +78,24 @@ func newUpdateCmd() *cobra.Command {
 				return fmt.Errorf(msg.UpdateErrDownload, err)
 			}
 
+			checksums, err := fetchChecksums(signalCtx, httpClient, repo, targetVersion)
+			if err != nil {
+				os.Remove(tmpPath)
+				return fmt.Errorf(msg.UpdateErrChecksums, err)
+			}
+
+			expectedChecksum, ok := checksums[sogarkBinaryName()]
+			if !ok {
+				os.Remove(tmpPath)
+				return fmt.Errorf(msg.UpdateErrChecksum, fmt.Errorf("missing checksum for %s", sogarkBinaryName()))
+			}
+
+			fmt.Println(msg.UpdateVerifying)
+			if err := verifyFileChecksum(tmpPath, expectedChecksum); err != nil {
+				os.Remove(tmpPath)
+				return fmt.Errorf(msg.UpdateErrChecksum, err)
+			}
+
 			replaceResult, err := replaceCurrentBinary(execPath, tmpPath, targetVersion)
 			if err != nil {
 				os.Remove(tmpPath)

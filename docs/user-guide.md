@@ -34,7 +34,9 @@ curl -fsSL https://github.com/Lotti/sogark/releases/latest/download/install.sh |
 irm https://github.com/Lotti/sogark/releases/latest/download/install.ps1 | iex
 ```
 
-Lo script scarica il binario in `~/.sogark/bin/`, aggiunge la directory al PATH e configura automaticamente `update_repo` per gli aggiornamenti futuri.
+Lo script scarica il binario in `~/.sogark/bin/`, verifica il checksum SHA-256, prova a rimuovere i metadati di quarantena/MOTW dove possibile, aggiunge la directory al PATH e configura automaticamente `update_repo` per gli aggiornamenti futuri.
+
+Per limitare i warning di Windows/macOS, usa preferibilmente questi script o `sogark update` invece di aprire direttamente il file scaricato dal browser.
 
 ### Versione specifica
 
@@ -56,6 +58,8 @@ sogark update               # aggiorna all'ultima versione
 sogark update --check       # controlla senza aggiornare
 sogark update --version v1.2.0  # installa versione specifica
 ```
+
+Ogni release include anche `checksums.txt`, `checksums.txt.sig` e `checksums.txt.pem` per la verifica manuale o automatizzata della provenienza dei file pubblicati.
 
 ---
 

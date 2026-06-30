@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
 
     steps:
       - name: Checkout
@@ -34,6 +35,29 @@ jobs:
           echo "${{ steps.version.outputs.version }}" > bin/version.txt
           sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.sh > bin/install.sh
           sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.ps1 > bin/install.ps1
+          (
+            cd bin
+            sha256sum \
+              sogark-darwin-arm64 \
+              sogark-darwin-amd64 \
+              sogark-linux-amd64 \
+              sogark-linux-arm64 \
+              sogark-windows-amd64.exe \
+              sogark-windows-arm64.exe \
+              version.txt \
+              install.sh \
+              install.ps1 > checksums.txt
+          )
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4
+
+      - name: Sign checksums
+        run: |
+          cosign sign-blob --yes \
+            --output-signature bin/checksums.txt.sig \
+            --output-certificate bin/checksums.txt.pem \
+            bin/checksums.txt
 
       - name: Create release and upload assets
         uses: softprops/action-gh-release@v2
@@ -48,5 +72,8 @@ jobs:
             bin/sogark-windows-amd64.exe
             bin/sogark-windows-arm64.exe
             bin/version.txt
+            bin/checksums.txt
+            bin/checksums.txt.sig
+            bin/checksums.txt.pem
             bin/install.sh
             bin/install.ps1

@@ -141,7 +141,9 @@ func ConfigureFileZilla(hosts []HostTarget, username, proxyHost, keyPath string)
 	// Add entries for each host
 	for _, h := range hosts {
 		name := fmt.Sprintf("sogark: %s (%s@%s)", h.Name, h.TargetUser, h.Address)
-		psmpUser := fmt.Sprintf("%s@%s@%s@%s", username, h.TargetUser, h.Address, proxyHost)
+		// FileZilla keeps the proxy host in the separate Host field, so the
+		// username must stop at corporate@target@host for PSMP logins.
+		psmpUser := fmt.Sprintf("%s@%s@%s", username, h.TargetUser, h.Address)
 
 		fz.Servers.Servers = append(fz.Servers.Servers, filezillaServer{
 			Host:         proxyHost,
