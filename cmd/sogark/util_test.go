@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -90,6 +91,36 @@ func TestKeyFilePaths(t *testing.T) {
 	}
 	if pem != wantPem {
 		t.Errorf("pem = %q, want %q", pem, wantPem)
+	}
+}
+
+func TestResolveFileZillaKeyPathPrefersOpenSSH(t *testing.T) {
+	keyDir := t.TempDir()
+	openssh, ppk, pem := keyFilePaths(keyDir, "id_sogark")
+
+	for _, path := range []string{openssh, ppk, pem} {
+		if err := os.WriteFile(path, []byte("test"), 0600); err != nil {
+			t.Fatalf("write %s: %v", path, err)
+		}
+	}
+
+	got := resolveFileZillaKeyPath(keyDir, "id_sogark")
+	if got != openssh {
+		t.Fatalf("resolveFileZillaKeyPath() = %q, want %q", got, openssh)
+	}
+}
+
+func TestResolveFileZillaKeyPathFallsBackToPPK(t *testing.T) {
+	keyDir := t.TempDir()
+	_, ppk, _ := keyFilePaths(keyDir, "id_sogark")
+
+	if err := os.WriteFile(ppk, []byte("test"), 0600); err != nil {
+		t.Fatalf("write %s: %v", ppk, err)
+	}
+
+	got := resolveFileZillaKeyPath(keyDir, "id_sogark")
+	if got != ppk {
+		t.Fatalf("resolveFileZillaKeyPath() = %q, want %q", got, ppk)
 	}
 }
 

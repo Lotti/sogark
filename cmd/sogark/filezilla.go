@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
-	"runtime"
+	"os"
 
 	"github.com/Lotti/sogark/internal/config"
 	"github.com/Lotti/sogark/internal/keys"
@@ -53,12 +52,7 @@ func newFileZillaCmd() *cobra.Command {
 				}
 			}
 
-			// FileZilla works with OpenSSH keys on macOS/Linux, PPK on Windows
-			keyExt := ""
-			if runtime.GOOS == "windows" {
-				keyExt = ".ppk"
-			}
-			keyPath := filepath.Join(keyDir, cfg.SSHKeyName+keyExt)
+			keyPath := resolveFileZillaKeyPath(keyDir, cfg.SSHKeyName)
 
 			fzExe, err := resolveFileZillaPath(filezillaPath, cfg)
 			if err != nil {
@@ -88,4 +82,19 @@ func resolveFileZillaPath(flagPath string, cfg *config.Config) (string, error) {
 		return p, nil
 	}
 	return "", fmt.Errorf(msg.FileZillaNotFound + "\n" + msg.FileZillaNotFoundHint)
+}
+
+func resolveFileZillaKeyPath(keyDir, baseName string) string {
+	openssh, ppk, pem := keyFilePaths(keyDir, baseName)
+
+	// Prefer the same OpenSSH key that works with sogark ssh. Some FileZilla
+	// Windows setups fall back to keyboard-interactive auth when fed only the
+	// converted PPK, which causes unexpected PSMP password challenges.
+	for _, candidate := range []string{openssh, ppk, pem} {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+
+	return openssh
 }
