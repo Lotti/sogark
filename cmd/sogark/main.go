@@ -44,6 +44,11 @@ func main() {
 			if verbose {
 				os.Setenv("SOGARK_DEBUG", "1")
 			}
+			// Skip version check noise for the update command itself.
+			if cmd.Name() != "update" {
+				notifyIfUpdateAvailable()
+				runBackgroundVersionCheck()
+			}
 		},
 	}
 

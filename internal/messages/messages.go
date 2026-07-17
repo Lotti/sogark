@@ -205,6 +205,10 @@ const (
 	RootShort       = "CyberArk PSMP CLI — SAML/MFA authentication and SSH session management"
 	RootInterrupted = "\n[!] Operation interrupted"
 	RootFlagVerbose = "detailed output for debugging"
+
+	// VersionUpdateAvailable is printed to stderr when a newer release is cached.
+	// Args: new version, current version.
+	VersionUpdateAvailable = "\n[i] Update available: %s (you have %s). Run: sogark update\n\n"
 )
 
 // ── Update command ────────────────────────────────────────────────────────────
