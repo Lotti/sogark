@@ -5,6 +5,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"runtime"
 	"time"
@@ -58,11 +59,20 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		return "", err
 	}
 
-	u, err := launcher.New().Bin(path).
+	l := launcher.New().Bin(path).
 		Leakless(false).
 		Headless(false).
-		Set("disable-gpu").
-		Launch()
+		Set("disable-gpu")
+
+	// RHEL 9 (and other enterprise Linux distributions) restrict kernel user namespaces
+	// by default (user.max_user_namespaces=0). Without --no-sandbox the Chromium sandbox
+	// fails to start, which makes the CDP connection unreliable even though the browser
+	// window itself opens. --disable-dev-shm-usage prevents crashes when /dev/shm is small.
+	if runtime.GOOS == "linux" {
+		l = l.Set("no-sandbox").Set("disable-dev-shm-usage")
+	}
+
+	u, err := l.Launch()
 	if err != nil {
 		return "", fmt.Errorf(msg.AuthBrowserStartErr, err)
 	}
@@ -79,17 +89,30 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 	}
 	defer page.MustClose()
 
-	// Inject JS to intercept form submissions containing SAMLResponse
+	// Inject JS into every new document loaded in this tab.
+	// Three interception layers are used for maximum compatibility:
+	//  1. HTMLFormElement.prototype.submit override — catches explicit .submit() calls
+	//  2. capture-phase submit event listener — catches button clicks and JS dispatched events
+	//  3. MutationObserver + DOMContentLoaded — catches cases where the form is already in
+	//     the DOM (static HTML) or added dynamically after initial load
 	_, err = page.EvalOnNewDocument(`(function() {
+		function capture(root) {
+			var el = root ? root.querySelector('input[name="SAMLResponse"]') : null;
+			if (el && el.value && !window.__sogark_saml) {
+				window.__sogark_saml = el.value;
+			}
+		}
+
 		var origSubmit = HTMLFormElement.prototype.submit;
 		HTMLFormElement.prototype.submit = function() {
 			var el = this.querySelector('input[name="SAMLResponse"]');
 			if (el && el.value) {
 				window.__sogark_saml = el.value;
-				return;
+				return; // prevent actual form navigation
 			}
 			origSubmit.call(this);
 		};
+
 		document.addEventListener('submit', function(e) {
 			var el = e.target.querySelector && e.target.querySelector('input[name="SAMLResponse"]');
 			if (el && el.value) {
@@ -97,6 +120,13 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 				window.__sogark_saml = el.value;
 			}
 		}, true);
+
+		// Static form: check once DOM is ready
+		document.addEventListener('DOMContentLoaded', function() { capture(document); });
+
+		// Dynamic form: watch for DOM mutations
+		var obs = new MutationObserver(function() { capture(document); });
+		obs.observe(document.documentElement || document, { childList: true, subtree: true });
 	})()`)
 	if err != nil {
 		return "", fmt.Errorf(msg.AuthSAMLScriptErr, err)
@@ -121,14 +151,46 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 		case <-deadline:
 			return "", fmt.Errorf(msg.AuthSAMLTimeout)
 		case <-ticker.C:
-			val, evalErr := page.Eval(`window.__sogark_saml || ""`)
+			// Three-layer check: injected variable → live DOM → current URL query param.
+			// The URL check handles SAML redirect binding (rare but used by some IDPs).
+			val, evalErr := page.Eval(`(function() {
+				if (window.__sogark_saml) return window.__sogark_saml;
+				var el = document.querySelector('input[name="SAMLResponse"]');
+				if (el && el.value) return el.value;
+				return "";
+			})()`)
 			if evalErr != nil {
+				// Try URL-based detection as last resort (redirect binding)
+				if s := samlFromURL(page); s != "" {
+					fmt.Println(msg.AuthComplete)
+					return s, nil
+				}
 				continue
 			}
 			if s := val.Value.Str(); s != "" {
 				fmt.Println(msg.AuthComplete)
 				return s, nil
 			}
+			// Also check URL in case eval succeeded but value was empty
+			if s := samlFromURL(page); s != "" {
+				fmt.Println(msg.AuthComplete)
+				return s, nil
+			}
 		}
 	}
 }
+
+// samlFromURL extracts a SAMLResponse query parameter from the browser's current URL.
+// This handles the rare SAML HTTP redirect binding.
+func samlFromURL(page *rod.Page) string {
+	info, err := page.Info()
+	if err != nil {
+		return ""
+	}
+	u, err := url.Parse(info.URL)
+	if err != nil {
+		return ""
+	}
+	return u.Query().Get("SAMLResponse")
+}
+
