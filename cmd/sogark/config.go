@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,8 +32,6 @@ func newConfigInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: msg.ConfigInitShort,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			reader := bufio.NewReader(os.Stdin)
-
 			// Start from existing config or defaults
 			cfg := config.Defaults()
 			if existing, err := config.Load(); err == nil {
@@ -44,15 +41,59 @@ func newConfigInitCmd() *cobra.Command {
 			fmt.Println(msg.ConfigInitTitle)
 			fmt.Println("─────────────────────")
 
-			cfg.Username = prompt(reader, msg.ConfigInitUsername, cfg.Username)
-			cfg.PVWABaseURL = prompt(reader, "PVWA Base URL", cfg.PVWABaseURL)
-			cfg.IDPURL = prompt(reader, "IDP URL", cfg.IDPURL)
-			cfg.ProxyHost = prompt(reader, "Proxy host", cfg.ProxyHost)
-			cfg.SSHKeyName = prompt(reader, msg.ConfigInitSSHKeyName, cfg.SSHKeyName)
-			cfg.KeyDir = prompt(reader, msg.ConfigInitKeyDir, cfg.KeyDir)
-			cfg.DefaultSSHUser = prompt(reader, msg.ConfigInitSSHUser, cfg.DefaultSSHUser)
-			cfg.DefaultSCPUser = prompt(reader, msg.ConfigInitSCPUser, cfg.DefaultSCPUser)
-			formatsStr := prompt(reader, msg.ConfigInitKeyFormats, strings.Join(cfg.KeyFormats, ","))
+			prompter := newPrompter(os.Stdin, os.Stdout)
+			prompterClosed := false
+			defer func() {
+				if !prompterClosed {
+					_ = prompter.Close()
+				}
+			}()
+			ask := func(label, current string) (string, error) {
+				return prompter.Prompt(label, current)
+			}
+			var err error
+
+			cfg.Username, err = ask(msg.ConfigInitUsername, cfg.Username)
+			if err != nil {
+				return err
+			}
+			cfg.PVWABaseURL, err = ask("PVWA Base URL", cfg.PVWABaseURL)
+			if err != nil {
+				return err
+			}
+			cfg.IDPURL, err = ask("IDP URL", cfg.IDPURL)
+			if err != nil {
+				return err
+			}
+			cfg.ProxyHost, err = ask("Proxy host", cfg.ProxyHost)
+			if err != nil {
+				return err
+			}
+			cfg.SSHKeyName, err = ask(msg.ConfigInitSSHKeyName, cfg.SSHKeyName)
+			if err != nil {
+				return err
+			}
+			cfg.KeyDir, err = ask(msg.ConfigInitKeyDir, cfg.KeyDir)
+			if err != nil {
+				return err
+			}
+			cfg.DefaultSSHUser, err = ask(msg.ConfigInitSSHUser, cfg.DefaultSSHUser)
+			if err != nil {
+				return err
+			}
+			cfg.DefaultSCPUser, err = ask(msg.ConfigInitSCPUser, cfg.DefaultSCPUser)
+			if err != nil {
+				return err
+			}
+			formatsStr, err := ask(msg.ConfigInitKeyFormats, strings.Join(cfg.KeyFormats, ","))
+			if err != nil {
+				return err
+			}
+			if err := prompter.Close(); err != nil {
+				return err
+			}
+			prompterClosed = true
+
 			normalizedFormats, err := config.NormalizeKeyFormats(splitCSV(formatsStr))
 			if err != nil {
 				return err
@@ -112,20 +153,6 @@ func newConfigShowCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func prompt(reader *bufio.Reader, label, defaultVal string) string {
-	if defaultVal != "" {
-		fmt.Printf("%s [%s]: ", label, defaultVal)
-	} else {
-		fmt.Printf("%s: ", label)
-	}
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return defaultVal
-	}
-	return input
 }
 
 func splitCSV(s string) []string {

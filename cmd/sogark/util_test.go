@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,27 +53,47 @@ func TestSplitCSV(t *testing.T) {
 	}
 }
 
-func TestPrompt_WithDefault(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader("\n"))
-	got := prompt(reader, "Test", "default_val")
+func TestFallbackPrompter_WithDefault(t *testing.T) {
+	var output bytes.Buffer
+	prompter := newFallbackPrompter(strings.NewReader("\n"), &output)
+
+	got, err := prompter.Prompt("Test", "default_val")
+	if err != nil {
+		t.Fatalf("Prompt() error = %v", err)
+	}
 	if got != "default_val" {
-		t.Errorf("prompt with empty input = %q, want %q", got, "default_val")
+		t.Errorf("Prompt() with empty input = %q, want %q", got, "default_val")
+	}
+	if output.String() != "Test [default_val]: " {
+		t.Errorf("Prompt() wrote %q, want %q", output.String(), "Test [default_val]: ")
 	}
 }
 
-func TestPrompt_WithInput(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader("custom\n"))
-	got := prompt(reader, "Test", "default_val")
+func TestFallbackPrompter_WithInput(t *testing.T) {
+	prompter := newFallbackPrompter(strings.NewReader("custom\n"), &bytes.Buffer{})
+
+	got, err := prompter.Prompt("Test", "default_val")
+	if err != nil {
+		t.Fatalf("Prompt() error = %v", err)
+	}
 	if got != "custom" {
-		t.Errorf("prompt with input = %q, want %q", got, "custom")
+		t.Errorf("Prompt() with input = %q, want %q", got, "custom")
 	}
 }
 
-func TestPrompt_NoDefault(t *testing.T) {
-	reader := bufio.NewReader(strings.NewReader("value\n"))
-	got := prompt(reader, "Test", "")
+func TestFallbackPrompter_NoDefault(t *testing.T) {
+	var output bytes.Buffer
+	prompter := newFallbackPrompter(strings.NewReader("value\n"), &output)
+
+	got, err := prompter.Prompt("Test", "")
+	if err != nil {
+		t.Fatalf("Prompt() error = %v", err)
+	}
 	if got != "value" {
-		t.Errorf("prompt with no default = %q, want %q", got, "value")
+		t.Errorf("Prompt() with no default = %q, want %q", got, "value")
+	}
+	if output.String() != "Test: " {
+		t.Errorf("Prompt() wrote %q, want %q", output.String(), "Test: ")
 	}
 }
 
