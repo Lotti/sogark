@@ -2,7 +2,10 @@
 
 package auth
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestResolveLinuxAuthMode_DefaultsToHeadlessWithoutDisplay(t *testing.T) {
 	t.Setenv(envAuthMode, "")
@@ -50,5 +53,32 @@ func TestResolveLinuxAuthMode_Invalid(t *testing.T) {
 
 	if _, err := resolveLinuxAuthMode(); err == nil {
 		t.Fatal("resolveLinuxAuthMode() should fail")
+	}
+}
+
+func TestFindBrowserInPath_PrefersKnownCandidates(t *testing.T) {
+	calls := []string{}
+	path := findBrowserInPath(func(name string) (string, error) {
+		calls = append(calls, name)
+		if name == "chromium-browser" {
+			return "/usr/bin/chromium-browser", nil
+		}
+		return "", errors.New("not found")
+	})
+
+	if path != "/usr/bin/chromium-browser" {
+		t.Fatalf("path = %q, want chromium-browser path", path)
+	}
+	if len(calls) == 0 || calls[0] != "microsoft-edge" {
+		t.Fatalf("unexpected candidate order: %v", calls)
+	}
+}
+
+func TestFindBrowserInPath_ReturnsEmptyWhenMissing(t *testing.T) {
+	path := findBrowserInPath(func(name string) (string, error) {
+		return "", errors.New("not found")
+	})
+	if path != "" {
+		t.Fatalf("path = %q, want empty", path)
 	}
 }

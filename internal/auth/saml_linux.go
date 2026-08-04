@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -82,6 +83,9 @@ func findBrowser() (string, error) {
 	if p := findEdge(); p != "" {
 		return p, nil
 	}
+	if p := findBrowserInPath(exec.LookPath); p != "" {
+		return p, nil
+	}
 	if p, found := launcher.LookPath(); found {
 		return p, nil
 	}
@@ -98,6 +102,24 @@ func findEdge() string {
 		"/usr/bin/microsoft-edge-stable",
 	} {
 		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return ""
+}
+
+func findBrowserInPath(lookPath func(string) (string, error)) string {
+	for _, name := range []string{
+		"microsoft-edge",
+		"microsoft-edge-stable",
+		"google-chrome",
+		"google-chrome-stable",
+		"chromium",
+		"chromium-browser",
+		"brave-browser",
+		"brave-browser-stable",
+	} {
+		if p, err := lookPath(name); err == nil && strings.TrimSpace(p) != "" {
 			return p
 		}
 	}
