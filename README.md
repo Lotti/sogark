@@ -34,7 +34,7 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 
 ### Prerequisiti
 
-- **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA su macOS/Linux)
+- **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA con Rod su macOS/Linux; su Linux funziona sia con desktop grafico sia in terminale headless)
 - **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell 5.1 built-in, usato per SAML/MFA e rilevamento processi)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
 
@@ -157,12 +157,19 @@ Esegue l'autenticazione SAML/MFA e scarica le chiavi SSH temporanee.
 sogark login
 sogark login --user altro.utente
 sogark login --format openssh,pem
+SOGARK_AUTH_MODE=headless sogark login
 ```
 
 | Flag | Descrizione |
 |------|-------------|
 | `-u, --user` | Override username aziendale |
 | `-f, --format` | Formati chiave (CSV) |
+
+Su **Linux**:
+
+- default: **GUI** se `DISPLAY`/`WAYLAND_DISPLAY` esiste, altrimenti **headless terminal**
+- override esplicito: `SOGARK_AUTH_MODE=gui`, `SOGARK_AUTH_MODE=headless`, `SOGARK_AUTH_MODE=auto`
+- browser custom: `SOGARK_BROWSER=/percorso/chrome-or-chromium`
 
 ---
 
