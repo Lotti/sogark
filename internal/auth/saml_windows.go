@@ -41,7 +41,7 @@ func SAMLResponse(ctx context.Context, idpURL string, timeoutMinutes int) (strin
 
 	cmd := exec.CommandContext(ctx, psPath,
 		"-NoProfile",
-		"-ExecutionPolicy", "Bypass",
+		"-STA",
 		"-Command", script,
 	)
 
@@ -83,7 +83,6 @@ $form.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
 $form.Width = 640
 $form.Height = 700
 $form.ShowIcon = $false
-$form.TopMost = $true
 $form.Text = "sogark - Login SAML/MFA"
 
 $web = New-Object Windows.Forms.WebBrowser

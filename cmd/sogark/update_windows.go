@@ -4,48 +4,30 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+	"strconv"
+	"syscall"
+	"time"
 
 	msg "github.com/Lotti/sogark/internal/messages"
 )
 
 func replaceCurrentBinary(execPath, tmpPath, _ string) (binaryReplaceResult, error) {
-	psPath, err := exec.LookPath("powershell.exe")
-	if err != nil {
+	helperPath := filepath.Join(os.TempDir(), fmt.Sprintf("sogark-update-helper-%d.exe", os.Getpid()))
+	if err := copyFile(execPath, helperPath); err != nil {
 		return binaryReplaceResult{}, fmt.Errorf(msg.UpdateErrReplace, err)
 	}
 
-	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("sogark-update-%d.ps1", os.Getpid()))
-	script := fmt.Sprintf(`$ErrorActionPreference = "Stop"
-$Target = '%s'
-$Source = '%s'
-$PidToWait = %d
-
-for ($i = 0; $i -lt 240; $i++) {
-    if (-not (Get-Process -Id $PidToWait -ErrorAction SilentlyContinue)) {
-        break
-    }
-    Start-Sleep -Milliseconds 250
-}
-
-if (Test-Path -LiteralPath $Target) {
-    Remove-Item -LiteralPath $Target -Force
-}
-Move-Item -LiteralPath $Source -Destination $Target -Force
-try {
-    Unblock-File -LiteralPath $Target -ErrorAction Stop
-} catch {
-}
-`, psSingleQuote(execPath), psSingleQuote(tmpPath), os.Getpid())
-
-	if err := os.WriteFile(scriptPath, []byte(script), 0600); err != nil {
-		return binaryReplaceResult{}, fmt.Errorf(msg.UpdateErrReplace, err)
-	}
-
-	cmd := exec.Command(psPath, "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", scriptPath)
+	cmd := exec.Command(helperPath,
+		"__complete-update",
+		"--source", tmpPath,
+		"--target", execPath,
+		"--wait-pid", strconv.Itoa(os.Getpid()),
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	if err := cmd.Start(); err != nil {
 		return binaryReplaceResult{}, fmt.Errorf(msg.UpdateErrReplace, err)
 	}
@@ -53,6 +35,37 @@ try {
 	return binaryReplaceResult{Deferred: true}, nil
 }
 
-func psSingleQuote(value string) string {
-	return strings.ReplaceAll(value, `'`, `''`)
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	if err := out.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func replaceFileWithRetry(source, target string, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		_ = os.Remove(target)
+		if err := os.Rename(source, target); err == nil {
+			return nil
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout replacing %s", target)
 }

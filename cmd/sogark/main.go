@@ -54,7 +54,7 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVar(&verbose, "verbose", false, msg.RootFlagVerbose)
 
-	rootCmd.AddCommand(
+	commands := []*cobra.Command{
 		newSSHCmd(),
 		newScpCmd(),
 		newLoginCmd(),
@@ -68,7 +68,11 @@ func main() {
 		newFileZillaCmd(),
 		newUpdateCmd(),
 		newCompletionCmd(),
-	)
+	}
+	if helperCmd := newUpdateHelperCmd(); helperCmd != nil {
+		commands = append(commands, helperCmd)
+	}
+	rootCmd.AddCommand(commands...)
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
