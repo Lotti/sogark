@@ -33,6 +33,14 @@ jobs:
       - name: Generate release assets
         run: |
           echo "${{ steps.version.outputs.version }}" > bin/version.txt
+          awk -v version="${{ steps.version.outputs.version }}" '
+            /^## / { if (found) exit; found = ($2 == version); next }
+            found { print }
+          ' CHANGELOG.md > bin/release-notes.md
+          if [ ! -s bin/release-notes.md ]; then
+            echo "Missing changelog entry for ${{ steps.version.outputs.version }}" >&2
+            exit 1
+          fi
           sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.sh > bin/install.sh
           sed "s|__UPDATE_REPO__|${{ github.repository }}|g" scripts/install.ps1 > bin/install.ps1
           (
@@ -63,6 +71,8 @@ jobs:
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: ${{ steps.version.outputs.version }}
+          draft: true
+          body_path: bin/release-notes.md
           files: |
             bin/sogark-darwin-arm64
             bin/sogark-darwin-amd64
@@ -75,3 +85,8 @@ jobs:
             bin/checksums.txt.bundle
             bin/install.sh
             bin/install.ps1
+
+      - name: Publish completed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ steps.version.outputs.version }}" --draft=false --latest

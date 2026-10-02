@@ -8,8 +8,12 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 
 | Funzionalità | Piattaforma | Note |
 |---|---|---|
-| `sogark login` — SAML/MFA via Chrome | macOS, Windows | Flusso completo con MFA |
-| Download chiavi OpenSSH, PEM, PPK | macOS, Windows | |
+| Login browser SAML/MFA della release precedente | macOS, Windows | Verifica storica, non applicabile al nuovo flusso API |
+| Script API nativo di riferimento QR/push + SAML + download | Windows | Confermato dall'utente; non equivale a una verifica del nuovo binario Go |
+| Identity QR/push del nuovo binario Go | Linux | Scansione e approvazione push confermate dall'utente; bootstrap PVWA ancora bloccato |
+| Rendering QR compatto del nuovo binario Go | Linux | Visualizzazione e scansione confermate dall'utente |
+| Nuovo login Go QR/push + SAML + download chiavi | Windows | Flusso completo confermato dall'utente sulla rete di destinazione |
+| Download chiavi OpenSSH, PEM, PPK della release precedente | macOS, Windows | |
 | Validazione TTL chiavi (4h) | macOS, Windows | |
 | Auto-login da `sogark ssh` se chiave scaduta | macOS, Windows | |
 
@@ -21,6 +25,7 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 | `sogark ssh <nome-host>` | macOS | Risoluzione da hosts.yaml |
 | `sogark ssh user@host` | macOS | Override utente target |
 | Flag SSH nativi passati a ssh | macOS | `-L`, `-v`, ecc. |
+| `sogark ssh` con le chiavi del nuovo login API | Windows | Funzionamento confermato dall'utente |
 
 ## ✅ Trasferimento SCP
 
@@ -29,6 +34,7 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 | `sogark scp` upload singolo | macOS | |
 | `sogark scp` con `#tag` inline | macOS | Batch upload su più host |
 | `sogark scp` download con `#tag` | macOS | Crea sottocartelle per host |
+| `sogark scp` con le chiavi del nuovo login API | Windows | Funzionamento confermato dall'utente |
 
 ## ✅ Multi-pane
 
@@ -50,6 +56,7 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 | MobaXterm salvataggio `moba_path` | Windows | Persistente tra sessioni |
 | MobaXterm backslash nel path chiave | Windows | Convertiti in forward slash |
 | Delay tra tab MobaXterm | Windows | 2s delay, tutte le tab si aprono |
+| `sogark moba` con le chiavi del nuovo login API | Windows | Funzionamento confermato dall'utente |
 
 ## ✅ Gestione host
 
@@ -63,7 +70,8 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 
 | Funzionalità | Piattaforma | Note |
 |---|---|---|
-| `sogark config init` | macOS, Windows | Wizard interattivo |
+| `sogark config init` della release precedente | macOS, Windows | Verifica storica del wizard |
+| Blocco config legacy e nuovo editor del wizard | Windows | Confermato dall'utente con la candidata nativa |
 | `sogark config set/show` | macOS, Windows | |
 | `sogark config wezterm` | Windows | Genera file con `prefer_egl = true` |
 
@@ -79,10 +87,21 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 | `sogark scp --any-tag` (OR batch) | Implementato, non testato |
 | `default_scp_user` | Implementato, non testato |
 | `moba_max_sessions` | Implementato, non testato |
-| Cross-compile Windows | Build OK, non testato in runtime |
-| Cross-compile Linux | Build OK, non testato in runtime |
+| Altri target Windows | Build OK; verifica reale effettuata solo con la candidata amd64 |
+| Login SAML completo su Linux | QR/push e rendering verificati; PVWA e download da provare sulla rete di destinazione |
 | `sogark keys clean` | Implementato, non testato |
+| Nuovo login Go QR/push + OIDC + cache chiavi | Coperto da test di contratto; utenza reale abilitata necessaria |
+| Nuovo wizard di migrazione su macOS | Cross-build amd64/arm64 riuscite; verifica della console macOS ancora necessaria |
+
+## Verifiche automatiche della nuova configurazione
+
+| Funzionalità | Piattaforma | Note |
+|---|---|---|
+| Blocco configurazioni legacy e profili incompleti | Linux, Windows | Errore prima dei comandi; help, versione, wizard e helper update Windows restano accessibili |
+| Migrazione guidata | Linux, Windows | Impostazioni mantenute, backup esatto e annullamento senza modifiche |
+| Editor del wizard in console reale | Linux, Windows | Backspace, spazi, ripristino console; su Linux anche wizard completo in PTY da 45 colonne |
+| Editor portabile | Linux, Windows | Delete, cursore, Unicode, CRLF, paste, Ctrl+C/Ctrl+D |
 
 ---
 
-*Ultimo aggiornamento: marzo 2026*
+*Ultimo aggiornamento: ottobre 2026*

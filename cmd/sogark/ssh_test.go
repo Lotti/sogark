@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"github.com/Lotti/sogark/internal/config"
 )
 
 func TestParseSSHFlags_Basic(t *testing.T) {
@@ -132,22 +134,15 @@ func TestFormatDuration(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
-	tests := []struct {
-		s    string
-		n    int
-		want string
-	}{
-		{"hello", 10, "hello"},
-		{"hello world", 5, "hello..."},
-		{"abc", 3, "abc"},
-		{"abcd", 3, "abc..."},
-		{"", 5, ""},
+func TestParseSSHFlags_ConfigOverride(t *testing.T) {
+	previous := config.FileOverride
+	t.Cleanup(func() { config.FileOverride = previous })
+	_, _, _, _, host, args, err := parseSSHFlags([]string{"--config", "/tmp/private.yaml", "host"})
+	if err != nil || host != "host" || len(args) != 0 || config.FileOverride != "/tmp/private.yaml" {
+		t.Fatalf("config override not consumed: host=%q args=%v err=%v", host, args, err)
 	}
-	for _, tt := range tests {
-		got := truncate(tt.s, tt.n)
-		if got != tt.want {
-			t.Errorf("truncate(%q, %d) = %q, want %q", tt.s, tt.n, got, tt.want)
-		}
+	_, _, _, _, _, _, err = parseSSHFlags([]string{"--config"})
+	if err == nil {
+		t.Fatal("missing config path must fail")
 	}
 }

@@ -10,7 +10,7 @@ func TestCommandLine(t *testing.T) {
 		Username:   "mario.rossi",
 		TargetUser: "root",
 		Host:       "10.0.0.1",
-		ProxyHost:  "psmp.sogei.it",
+		ProxyHost:  "psmp.example.com",
 		KeyPath:    "/home/user/.sogark/keys/id_sogark",
 	}
 
@@ -21,7 +21,7 @@ func TestCommandLine(t *testing.T) {
 	if cmd[0] != "ssh" {
 		t.Errorf("cmd[0]: got %q, want %q", cmd[0], "ssh")
 	}
-	expected := "mario.rossi@root@10.0.0.1@psmp.sogei.it"
+	expected := "mario.rossi@root@10.0.0.1@psmp.example.com"
 	if cmd[1] != expected {
 		t.Errorf("cmd[1]: got %q, want %q", cmd[1], expected)
 	}

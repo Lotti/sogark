@@ -17,7 +17,7 @@ type Parsed struct {
 
 var (
 	opensshPattern = regexp.MustCompile(`(?ms)-----BEGIN OPENSSH PRIVATE KEY-----\s*.*?\s*-----END OPENSSH PRIVATE KEY-----`)
-	pemPattern     = regexp.MustCompile(`(?ms)-----BEGIN RSA PRIVATE KEY-----\s*.*?\s*-----END RSA PRIVATE KEY-----`)
+	pemPattern     = regexp.MustCompile(`(?ms)-----BEGIN ((?:RSA |EC |DSA )?PRIVATE KEY)-----\s*.*?\s*-----END ((?:RSA |EC |DSA )?PRIVATE KEY)-----`)
 	ppkPattern     = regexp.MustCompile(`(?ms)PuTTY-User-Key-File-\d+:[^\r\n]*\r?\n.*?Private-MAC:\s*[0-9a-fA-F]+`)
 )
 
@@ -28,8 +28,11 @@ func Parse(raw string) (*Parsed, error) {
 	if m := opensshPattern.FindString(raw); m != "" {
 		p.OpenSSH = normalize(m)
 	}
-	if m := pemPattern.FindString(raw); m != "" {
-		p.PEM = normalize(m)
+	if m := pemPattern.FindStringSubmatch(raw); len(m) > 0 {
+		if m[1] != m[2] {
+			return nil, fmt.Errorf("PEM private key has mismatched markers")
+		}
+		p.PEM = normalize(m[0])
 	}
 	if m := ppkPattern.FindString(raw); m != "" {
 		p.PPK = normalize(m)
@@ -40,6 +43,26 @@ func Parse(raw string) (*Parsed, error) {
 	}
 
 	return p, nil
+}
+
+func (p *Parsed) RequireFormats(formats []string) error {
+	for _, format := range formats {
+		var key string
+		switch strings.ToLower(format) {
+		case "openssh":
+			key = p.OpenSSH
+		case "pem":
+			key = p.PEM
+		case "ppk":
+			key = p.PPK
+		default:
+			return fmt.Errorf("unsupported key format %q", format)
+		}
+		if key == "" {
+			return fmt.Errorf("response does not contain a recognizable %s private key", format)
+		}
+	}
+	return nil
 }
 
 // normalize trims whitespace and removes duplicate empty lines.

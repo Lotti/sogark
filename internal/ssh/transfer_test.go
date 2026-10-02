@@ -44,7 +44,7 @@ func TestScpArgs_CommandLine(t *testing.T) {
 	args := &ScpArgs{
 		Username:   "mario.rossi",
 		TargetUser: "root",
-		ProxyHost:  "psmp.sogei.it",
+		ProxyHost:  "psmp.example.com",
 		KeyPath:    "/home/mario/.sogark/keys/id_sogark",
 		ScpArgs:    []string{"file.txt", "10.1.2.3:/tmp/"},
 	}
@@ -53,7 +53,7 @@ func TestScpArgs_CommandLine(t *testing.T) {
 
 	// Base expected args (without -O which depends on local OpenSSH version)
 	wantPrefix := []string{"scp", "-i", "/home/mario/.sogark/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
-	wantSuffix := []string{"file.txt", "mario.rossi@root@10.1.2.3@psmp.sogei.it:/tmp/"}
+	wantSuffix := []string{"file.txt", "mario.rossi@root@10.1.2.3@psmp.example.com:/tmp/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
@@ -62,14 +62,14 @@ func TestScpArgs_CommandLine_UserOverride(t *testing.T) {
 	args := &ScpArgs{
 		Username:   "mario.rossi",
 		TargetUser: "root",
-		ProxyHost:  "psmp.sogei.it",
+		ProxyHost:  "psmp.example.com",
 		KeyPath:    "/keys/id_sogark",
 		ScpArgs:    []string{"-r", "./mydir", "admin@10.1.2.3:/opt/"},
 	}
 
 	got := args.CommandLine()
 	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
-	wantSuffix := []string{"-r", "./mydir", "mario.rossi@admin@10.1.2.3@psmp.sogei.it:/opt/"}
+	wantSuffix := []string{"-r", "./mydir", "mario.rossi@admin@10.1.2.3@psmp.example.com:/opt/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
@@ -78,14 +78,14 @@ func TestScpArgs_CommandLine_Download(t *testing.T) {
 	args := &ScpArgs{
 		Username:   "mario.rossi",
 		TargetUser: "root",
-		ProxyHost:  "psmp.sogei.it",
+		ProxyHost:  "psmp.example.com",
 		KeyPath:    "/keys/id_sogark",
 		ScpArgs:    []string{"10.1.2.3:/etc/hosts", "./local/"},
 	}
 
 	got := args.CommandLine()
 	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
-	wantSuffix := []string{"mario.rossi@root@10.1.2.3@psmp.sogei.it:/etc/hosts", "./local/"}
+	wantSuffix := []string{"mario.rossi@root@10.1.2.3@psmp.example.com:/etc/hosts", "./local/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }
@@ -94,14 +94,14 @@ func TestScpArgs_CommandLine_WithFlags(t *testing.T) {
 	args := &ScpArgs{
 		Username:   "mario.rossi",
 		TargetUser: "root",
-		ProxyHost:  "psmp.sogei.it",
+		ProxyHost:  "psmp.example.com",
 		KeyPath:    "/keys/id_sogark",
 		ScpArgs:    []string{"-C", "-v", "-P", "2222", "file.txt", "host:/tmp/"},
 	}
 
 	got := args.CommandLine()
 	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
-	wantSuffix := []string{"-C", "-v", "-P", "2222", "file.txt", "mario.rossi@root@host@psmp.sogei.it:/tmp/"}
+	wantSuffix := []string{"-C", "-v", "-P", "2222", "file.txt", "mario.rossi@root@host@psmp.example.com:/tmp/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
 }

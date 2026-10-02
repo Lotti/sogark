@@ -19,7 +19,7 @@ const (
 
 const (
 	SSHShort = "SSH connection via PSMP with automatic authentication"
-	SSHLong  = `Full flow: key check -> SAML/MFA authentication if needed -> SSH connection.
+	SSHLong  = `Full flow: key check -> Identity QR/push and configured PVWA logon if needed -> SSH connection.
 
 If the host matches a name registered in hosts.yaml, resolves its address and user.
 All standard ssh flags are supported directly.
@@ -82,8 +82,8 @@ Use ":/path" to specify the remote path on each host.`
 // ── Login command ─────────────────────────────────────────────────────────────
 
 const (
-	LoginShort      = "SAML/MFA authentication and SSH key download"
-	LoginLong       = "Opens the browser for SAML/MFA authentication, downloads SSH keys from CyberArk and saves them to disk."
+	LoginShort      = "Identity QR/push authentication and SSH key download"
+	LoginLong       = "Displays an Identity QR in the terminal, waits for push approval, completes the selected SAML/OIDC PVWA session and downloads SSH keys."
 	LoginFlagUser   = "override corporate username"
 	LoginFlagFormat = "key formats (openssh,pem,ppk)"
 )
@@ -202,7 +202,7 @@ const (
 // ── Main / root command ───────────────────────────────────────────────────────
 
 const (
-	RootShort       = "CyberArk PSMP CLI — SAML/MFA authentication and SSH session management"
+	RootShort       = "CyberArk PSMP CLI — native QR/push authentication and SSH session management"
 	RootInterrupted = "\n[!] Operation interrupted"
 	RootFlagVerbose = "detailed output for debugging"
 
@@ -297,43 +297,6 @@ With --add-tag and/or --remove-tag modifies tags on the found hosts.`
 	HostsSearchFlagRemoveTag = "remove tags from found hosts"
 )
 
-// ── internal/auth ─────────────────────────────────────────────────────────────
-
-const (
-	AuthLogonFailed        = "logon failed: %w"
-	AuthLogonReadErr       = "error reading logon response: %w"
-	AuthLogonHTTPFailed    = "logon failed (HTTP %d): %s"
-	AuthTokenNotReceived   = "session token not received"
-	AuthNotAuthenticated   = "not authenticated: run login first"
-	AuthSerializeErr       = "error serializing request: %w"
-	AuthCreateRequestErr   = "error creating request: %w"
-	AuthKeyFetchFailed     = "key fetch failed: %w"
-	AuthReadKeysErr        = "error reading keys response: %w"
-	AuthKeyFetchHTTPFailed = "key fetch failed (HTTP %d): %s"
-
-	// saml_other.go (non-Windows)
-	AuthBrowserNotFound = "Chromium-based browser not found (Edge, Chrome, Chromium).\n" +
-		"Install Edge or Chrome:\n" +
-		"  macOS:  brew install --cask microsoft-edge\n" +
-		"  Linux:  sudo apt install microsoft-edge-stable"
-	AuthBrowserStartErr   = "error starting browser: %w"
-	AuthBrowserConnectErr = "error connecting to browser: %w"
-	AuthBrowserPageErr    = "error opening browser page: %w"
-	AuthSAMLScriptErr     = "error injecting SAML interception script: %w"
-	AuthNavigateErr       = "error navigating to IDP: %w"
-	AuthBrowserOpening    = "[*] Opening browser for SAML/MFA login..."
-	AuthCompleteInBrowser = "   Complete authentication in the browser."
-	AuthSAMLTimeout       = "timeout: SAMLResponse not received (did you complete the login?)"
-
-	// saml_windows.go
-	AuthPSNotFound       = "powershell.exe not found.\nWindows PowerShell is required for SAML authentication."
-	AuthWindowOpening    = "[*] Opening SAML/MFA login window..."
-	AuthCompleteInWindow = "   Complete authentication in the window."
-	AuthSAMLFailed       = "SAML authentication failed: %s"
-	AuthSAMLFailedW      = "SAML authentication failed: %w"
-	AuthSAMLEmpty        = "empty SAMLResponse: login not completed or window closed"
-)
-
 // ── internal/config ───────────────────────────────────────────────────────────
 
 const (
@@ -345,7 +308,6 @@ const (
 	CfgSerializeErr   = "error serializing config: %w"
 	CfgWriteErr       = "error writing config: %w"
 	CfgKeyTTLHoursErr = "key_ttl_hours must be a positive integer"
-	CfgSAMLTimeoutErr = "saml_timeout_minutes must be a positive integer"
 	CfgMobaMaxErr     = "moba_max_sessions must be a positive integer"
 	CfgInvalidBackend = "invalid backend: %q (valid values: auto, wezterm, tabby, wt, tmux)"
 	CfgUnknownKey     = "unknown key: %q\nValid keys: %s"

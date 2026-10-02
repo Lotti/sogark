@@ -1,8 +1,8 @@
 # sogark
 
-CLI cross-platform per l'autenticazione CyberArk via SAML/MFA e la gestione di sessioni SSH tramite PSMP proxy.
+CLI cross-platform per l'autenticazione CyberArk Identity QR/push da terminale e la gestione di sessioni SSH tramite PSMP proxy.
 
-Sostituisce gli script PowerShell Windows-only con un singolo binario compilato che funziona su **macOS**, **Linux** e **Windows**.
+Usa le API native Identity e i protocolli PVWA SAML oppure OIDC, senza browser, WebView o WinForms, su **macOS**, **Linux** e **Windows**.
 
 ---
 
@@ -34,8 +34,9 @@ Sostituisce gli script PowerShell Windows-only con un singolo binario compilato 
 
 ### Prerequisiti
 
-- **Chrome** o **Chromium** (necessario per l'autenticazione SAML/MFA con Rod su macOS/Linux; su Linux serve una sessione grafica)
-- **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell 5.1 built-in, usato per SAML/MFA e rilevamento processi)
+- Un terminale interattivo, un'app di autenticazione abilitata al QR/push e un profilo CyberArk configurato
+- Accesso di rete a Identity e PVWA; eventuali VPN, gateway e proxy devono essere autenticati
+- **Windows 10 o 11** richiesto per la piattaforma Windows (PowerShell resta usato soltanto da funzionalità Windows non autenticative)
 - **tmux** per `sogark multi` su macOS/Linux (opzionale)
 
 ### Da GitHub (consigliato)
@@ -101,10 +102,9 @@ Richiede `update_repo` configurato (impostato automaticamente dallo script di in
 Ogni release pubblica anche:
 
 - `checksums.txt`
-- `checksums.txt.sig`
-- `checksums.txt.pem`
+- `checksums.txt.bundle`
 
-Gli script di installazione e `sogark update` verificano automaticamente il checksum SHA-256 del binario prima di sostituire quello locale. I file `.sig` e `.pem` permettono anche una verifica Sigstore keyless della release in CI o manualmente.
+Gli script di installazione e `sogark update` verificano automaticamente il checksum SHA-256 del binario prima di sostituire quello locale. Il bundle contiene la firma e il certificato Sigstore keyless per verificare separatamente la provenienza dei checksum.
 
 ---
 
@@ -143,7 +143,14 @@ sogark config set <key> <value>         # modifica parametro
 sogark config wezterm                   # genera ~/.wezterm.lua per VM
 ```
 
-Il wizard non ha valori aziendali pre-compilati — ogni campo va impostato alla prima esecuzione.
+Il wizard propone valori generici (`primary` e `saml`) e conserva le
+impostazioni esistenti. Tenant, URL e hostname non hanno valori aziendali
+pre-compilati: vanno inseriti alla prima configurazione.
+Le configurazioni precedenti alla struttura `auth_profile`/`auth_profiles`
+vengono bloccate all'avvio con l'istruzione di eseguire `sogark config init`.
+Il wizard conserva le impostazioni non autenticative e, prima di salvare una
+migrazione completata, crea un backup `config.yaml.legacy-*.bak`. Annullarlo
+non modifica il file originale.
 
 `config wezterm` genera un file WezTerm ottimizzato per VM con GPU limitata (`prefer_egl = true`) e keybinding clipboard. Se il file esiste già, stampa le righe da aggiungere manualmente.
 
@@ -151,13 +158,13 @@ Il wizard non ha valori aziendali pre-compilati — ogni campo va impostato alla
 
 ### sogark login
 
-Esegue l'autenticazione SAML/MFA e scarica le chiavi SSH temporanee.
+Esegue QR/push tramite le API Identity, completa il logon PVWA del profilo selezionato e scarica le chiavi SSH temporanee.
 
 ```bash
 sogark login
 sogark login --user altro.utente
 sogark login --format openssh,pem
-SOGARK_AUTH_MODE=gui sogark login
+sogark --config ~/.sogark/private.yaml login
 ```
 
 | Flag | Descrizione |
@@ -165,12 +172,17 @@ SOGARK_AUTH_MODE=gui sogark login
 | `-u, --user` | Override username aziendale |
 | `-f, --format` | Formati chiave (CSV) |
 
-Su **Linux**:
+Il QR restituito dal server viene mostrato nel terminale; dopo la scansione,
+approva la notifica push nell'app. Non serve una sessione grafica Linux.
+Il rendering compatto usa una colonna per modulo e due moduli per riga,
+preservando il bordo bianco. Se non entra, riduci il font o ingrandisci
+il terminale fino alle dimensioni indicate dall'errore.
+Se il tenant non restituisce QR, il comando indica di verificare profilo,
+tenant e abilitazione dell'utenza: non ripiega su SMS o su un altro ambiente.
+`SOGARK_AUTH_MODE` e `SOGARK_BROWSER` non sono più utilizzati.
 
-- richiede una sessione grafica (`DISPLAY` o `WAYLAND_DISPLAY`)
-- override esplicito: `SOGARK_AUTH_MODE=gui` oppure `SOGARK_AUTH_MODE=auto`
-- `SOGARK_AUTH_MODE=headless` al momento non e supportato
-- browser custom: `SOGARK_BROWSER=/percorso/chrome-or-chromium`
+Per la configurazione degli endpoint e la migrazione consulta
+[`docs/native-api-migration.md`](docs/native-api-migration.md).
 
 ---
 
@@ -406,17 +418,18 @@ sogark config set update_repo your-user/sogark
 
 ### Flusso di autenticazione
 
-```
-sogark CLI → Chrome (go-rod) → IDP SAML → utente fa MFA
-                                              ↓
-                                        SAMLResponse
-                                              ↓
-sogark CLI → PVWA /API/auth/SAML/Logon/ → token sessione
-                                              ↓
-sogark CLI → PVWA /API/Users/Secret/SSHKeys/Cache → chiavi SSH
-                                              ↓
-                                  salva su disco (4h TTL)
-```
+La CLI avvia `StartAuthentication`, attiva il QR con `StartOOB` e ne esegue
+il polling. Quando Identity restituisce il meccanismo `OTP`, lo avvia come
+push e attende `LoginSuccess`. L'intero flusso conserva una sessione HTTP
+condivisa; il token Identity non viene usato direttamente per scaricare chiavi.
+
+**SAML:** bootstrap PVWA con asserzione vuota, GET dell'URL restituito,
+estrazione dell'asserzione dall'HTML, secondo logon PVWA e token `Authorization`.
+**OIDC:** `Authorize`, GET della destinazione, estrazione di `code`/`state`,
+callback `Token`, cookie di sessione PVWA e header `x-ca66666`.
+
+La cache restituisce `value[].format/privateKey`; sogark verifica tutti i
+formati richiesti prima di salvare le chiavi e aggiornare il timestamp TTL.
 
 ### Formato connessione PSMP
 
@@ -431,14 +444,14 @@ ssh <utente_aziendale>@<utente_target>@<host>@<proxy_psmp> -i <chiave>
 | Chiave | Tipo | Default | Descrizione |
 |--------|------|---------|-------------|
 | `username` | stringa | — | Username aziendale |
-| `pvwa_base_url` | URL | — | URL base CyberArk PVWA |
-| `idp_url` | URL | — | URL login IDP SAML |
+| `auth_profile` | stringa | — | Nome del profilo selezionato esplicitamente |
+| `auth_profiles` | mappa | vuota | Profili SAML/OIDC con tenant e URL API completi |
 | `proxy_host` | hostname | — | Proxy PSMP |
 | `ssh_key_name` | stringa | — | Nome base file chiave |
 | `key_dir` | path | `~/.sogark/keys` | Directory chiavi |
 | `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave |
 | `key_ttl_hours` | intero | `4` | Durata chiavi (ore) |
-| `saml_timeout_minutes` | intero | `5` | Timeout autenticazione SAML |
+| `auth_timeout_minutes` | intero | `2` | Timeout QR/push e logon PVWA |
 | `default_ssh_user` | stringa | — | Utente target SSH di default |
 | `default_scp_user` | stringa | — | Utente target SCP (fallback a `default_ssh_user`) |
 | `moba_path` | path | auto-detect | Percorso MobaXterm.exe |
@@ -493,7 +506,7 @@ Per creare una release:
 make release
 ```
 
-La CI GitHub in [.github/workflows/release.yml](/Users/lotti/repos/sogei/sogark/.github/workflows/release.yml:1) compila e pubblica automaticamente.
+La CI GitHub in [.github/workflows/release.yml](.github/workflows/release.yml) compila e pubblica automaticamente.
 In più genera `checksums.txt` e lo firma con Sigstore keyless usando l'identità OIDC del workflow GitHub.
 
 ## Test

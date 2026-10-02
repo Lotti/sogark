@@ -25,6 +25,9 @@ func newScpCmd() *cobra.Command {
 			// Manually parse sogark-specific flags; everything else goes to scp.
 			sf, err := parseScpFlags(args)
 			if err != nil {
+				if err.Error() == "help" {
+					return cmd.Help()
+				}
 				return err
 			}
 			if len(sf.passArgs) == 0 {
@@ -168,6 +171,14 @@ func parseScpFlags(args []string) (sf scpFlags, err error) {
 	for i < len(args) {
 		a := args[i]
 		switch {
+		case a == "--config":
+			i++
+			if i >= len(args) {
+				return sf, fmt.Errorf(msg.FlagRequiresValue, a)
+			}
+			config.FileOverride = args[i]
+		case strings.HasPrefix(a, "--config="):
+			config.FileOverride = strings.TrimPrefix(a, "--config=")
 		case a == "--verbose":
 			os.Setenv("SOGARK_DEBUG", "1")
 		case a == "--dry-run":

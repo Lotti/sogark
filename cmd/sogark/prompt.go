@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/Lotti/sogark/internal/terminal"
 	"golang.org/x/term"
 )
 
@@ -15,14 +17,14 @@ type prompter interface {
 	Close() error
 }
 
-func newPrompter(stdin, stdout *os.File) prompter {
-	if stdin != nil && stdout != nil && term.IsTerminal(int(stdin.Fd())) && term.IsTerminal(int(stdout.Fd())) {
-		if tp, err := newTerminalPrompter(stdin, stdout); err == nil {
-			return tp
-		}
+func newPrompter(stdin io.Reader, stdout io.Writer) (prompter, error) {
+	input, inputFile := stdin.(*os.File)
+	output, outputFile := stdout.(*os.File)
+	if inputFile && outputFile && input != nil && output != nil && term.IsTerminal(int(input.Fd())) && term.IsTerminal(int(output.Fd())) {
+		return newTerminalPrompter(input, output)
 	}
 
-	return newFallbackPrompter(stdin, stdout)
+	return newFallbackPrompter(stdin, stdout), nil
 }
 
 type fallbackPrompter struct {
@@ -45,6 +47,7 @@ func newFallbackPrompter(reader io.Reader, writer io.Writer) *fallbackPrompter {
 }
 
 func (p *fallbackPrompter) Prompt(label, defaultVal string) (string, error) {
+	defaultVal = strings.TrimSpace(defaultVal)
 	if _, err := fmt.Fprint(p.writer, formatPrompt(label, defaultVal)); err != nil {
 		return "", err
 	}
@@ -52,6 +55,9 @@ func (p *fallbackPrompter) Prompt(label, defaultVal string) (string, error) {
 	input, err := p.reader.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return "", err
+	}
+	if err == io.EOF && strings.TrimSpace(input) == "" {
+		return "", io.EOF
 	}
 
 	input = strings.TrimSpace(input)
@@ -67,33 +73,56 @@ func (p *fallbackPrompter) Close() error {
 }
 
 type terminalPrompter struct {
-	fd    int
-	state *term.State
-	term  *term.Terminal
+	fd            int
+	output        *os.File
+	state         *term.State
+	term          *term.Terminal
+	restoreOutput func() error
 }
 
 func newTerminalPrompter(stdin, stdout *os.File) (*terminalPrompter, error) {
-	fd := int(stdin.Fd())
-	state, err := term.MakeRaw(fd)
+	restore, err := terminal.EnableANSI(stdout)
 	if err != nil {
 		return nil, err
 	}
+	width, height, err := term.GetSize(int(stdout.Fd()))
+	if err != nil {
+		return nil, errors.Join(fmt.Errorf("read wizard terminal size: %w", err), restore())
+	}
+	fd := int(stdin.Fd())
+	state, err := term.MakeRaw(fd)
+	if err != nil {
+		return nil, errors.Join(err, restore())
+	}
 
-	return &terminalPrompter{
-		fd:    fd,
-		state: state,
+	p := &terminalPrompter{
+		fd: fd, output: stdout, state: state, restoreOutput: restore,
 		term: term.NewTerminal(&terminalReadWriter{
 			reader: stdin,
 			writer: stdout,
 		}, ""),
-	}, nil
+	}
+	if err := p.term.SetSize(width, height); err != nil {
+		return nil, errors.Join(err, p.Close())
+	}
+	return p, nil
 }
 
 func (p *terminalPrompter) Prompt(label, defaultVal string) (string, error) {
+	defaultVal = strings.TrimSpace(defaultVal)
+	if p.output != nil {
+		width, height, err := term.GetSize(int(p.output.Fd()))
+		if err != nil {
+			return "", fmt.Errorf("read wizard terminal size: %w", err)
+		}
+		if err := p.term.SetSize(width, height); err != nil {
+			return "", err
+		}
+	}
 	p.term.SetPrompt(formatPrompt(label, defaultVal))
 
 	input, err := p.term.ReadLine()
-	if err != nil {
+	if err != nil && !errors.Is(err, term.ErrPasteIndicator) {
 		return "", err
 	}
 
@@ -106,7 +135,12 @@ func (p *terminalPrompter) Prompt(label, defaultVal string) (string, error) {
 }
 
 func (p *terminalPrompter) Close() error {
-	return term.Restore(p.fd, p.state)
+	if p.state == nil {
+		return nil
+	}
+	err := errors.Join(term.Restore(p.fd, p.state), p.restoreOutput())
+	p.state = nil
+	return err
 }
 
 type terminalReadWriter struct {

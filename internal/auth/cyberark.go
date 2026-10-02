@@ -1,168 +1,73 @@
 package auth
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
-	"os"
 	"strings"
-	"time"
 
-	msg "github.com/Lotti/sogark/internal/messages"
+	"github.com/Lotti/sogark/internal/config"
 )
 
-// Client handles communication with the CyberArk PVWA REST API.
-type Client struct {
-	BaseURL    string
-	Token      string
-	HTTPClient *http.Client
-}
-
-// NewClient creates a new CyberArk API client.
-func NewClient(baseURL string) *Client {
-	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
-}
-
-// Logon authenticates using a SAML response and stores the session token.
-func (c *Client) Logon(ctx context.Context, samlResponse string) error {
-	loginURL := c.BaseURL + "/API/auth/SAML/Logon/"
-
-	form := url.Values{}
-	form.Set("apiUse", "true")
-	form.Set("concurrentSession", "true")
-	form.Set("SAMLResponse", samlResponse)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, loginURL, strings.NewReader(form.Encode()))
-	if err != nil {
-		return fmt.Errorf(msg.AuthLogonFailed, err)
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return fmt.Errorf(msg.AuthLogonFailed, err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf(msg.AuthLogonReadErr, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf(msg.AuthLogonHTTPFailed, resp.StatusCode, string(body))
-	}
-
-	// The token is returned as a JSON string (quoted)
-	token := string(body)
-	// Remove surrounding quotes if present
-	if len(token) >= 2 && token[0] == '"' && token[len(token)-1] == '"' {
-		token = token[1 : len(token)-1]
-	}
-
-	if token == "" {
-		return fmt.Errorf(msg.AuthTokenNotReceived)
-	}
-
-	c.Token = token
-	return nil
-}
-
-// sshKeyEntry represents a single key in the CyberArk API response.
 type sshKeyEntry struct {
 	Format     string `json:"format"`
 	PrivateKey string `json:"privateKey"`
 }
 
-// sshKeysResponse represents the CyberArk SSHKeys/Cache API response.
 type sshKeysResponse struct {
 	Value []sshKeyEntry `json:"value"`
 }
 
-// FetchSSHKeys retrieves SSH keys from the MFA cache in the specified formats.
-func (c *Client) FetchSSHKeys(ctx context.Context, formats []string) (string, error) {
-	if c.Token == "" {
-		return "", fmt.Errorf(msg.AuthNotAuthenticated)
+func (c *NativeClient) FetchSSHKeys(ctx context.Context, formats []string) (string, error) {
+	if c.credential == "" {
+		return "", errors.New("PVWA session is not authenticated")
 	}
-
-	keysURL := c.BaseURL + "/API/Users/Secret/SSHKeys/Cache"
-
-	payload := map[string][]string{"formats": formats}
-	jsonBody, err := json.Marshal(payload)
+	formats, err := config.NormalizeKeyFormats(formats)
 	if err != nil {
-		return "", fmt.Errorf(msg.AuthSerializeErr, err)
+		return "", err
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, keysURL, bytes.NewReader(jsonBody))
+	body, err := json.Marshal(map[string][]string{"formats": formats})
 	if err != nil {
-		return "", fmt.Errorf(msg.AuthCreateRequestErr, err)
+		return "", errors.New("cannot serialize key formats")
 	}
-	req.Header.Set("Authorization", c.Token)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.HTTPClient.Do(req)
+	headers := make(http.Header)
+	switch c.profile.AuthType {
+	case "saml":
+		headers.Set("Authorization", c.credential)
+	case "oidc":
+		headers.Set("x-ca66666", c.credential)
+		headers.Set("Accept", "application/json; flat=true; version=1.0")
+	}
+	data, _, err := c.request(ctx, "PVWA SSH key cache", http.MethodPost, c.profile.SSHKeysCacheURL, "application/json", body, headers, false)
 	if err != nil {
-		return "", fmt.Errorf(msg.AuthKeyFetchFailed, err)
+		return "", err
 	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf(msg.AuthReadKeysErr, err)
+	var response sshKeysResponse
+	if err := json.Unmarshal(data, &response); err != nil {
+		return "", errors.New("PVWA SSH key cache returned non-key JSON/HTML instead of value[].format/privateKey")
 	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf(msg.AuthKeyFetchHTTPFailed, resp.StatusCode, string(body))
+	requested := make(map[string]bool, len(formats))
+	for _, format := range formats {
+		requested[format] = true
 	}
-
-	// The API returns JSON: {"value":[{"format":"OpenSSH","privateKey":"..."},...]}.
-	// json.Unmarshal automatically unescapes \n and \r\n in privateKey strings.
-	var parsed sshKeysResponse
-	if err := json.Unmarshal(body, &parsed); err == nil && len(parsed.Value) > 0 {
-		var parts []string
-		for _, entry := range parsed.Value {
-			if entry.PrivateKey != "" {
-				parts = append(parts, entry.PrivateKey)
-			}
+	received := make(map[string]bool, len(formats))
+	var parts []string
+	for _, entry := range response.Value {
+		if !requested[entry.Format] {
+			continue
 		}
-		raw := strings.Join(parts, "\n")
-
-		if os.Getenv("SOGARK_DEBUG") != "" {
-			fmt.Fprintf(os.Stderr, "[DEBUG] FetchSSHKeys: parsed %d key(s) from JSON response\n", len(parts))
-			for _, e := range parsed.Value {
-				preview := e.PrivateKey
-				if len(preview) > 80 {
-					preview = preview[:80] + "..."
-				}
-				fmt.Fprintf(os.Stderr, "[DEBUG]   format=%s, len=%d, preview=%q\n", e.Format, len(e.PrivateKey), preview)
-			}
+		if received[entry.Format] || strings.TrimSpace(entry.PrivateKey) == "" {
+			return "", errors.New("PVWA SSH key cache returned a duplicate or empty requested key")
 		}
-
-		return raw, nil
+		received[entry.Format] = true
+		parts = append(parts, entry.PrivateKey)
 	}
-
-	// Fallback: try as JSON string, then raw text
-	raw := string(body)
-	trimmed := strings.TrimSpace(raw)
-	if len(trimmed) >= 2 && trimmed[0] == '"' {
-		var unescaped string
-		if err := json.Unmarshal([]byte(trimmed), &unescaped); err == nil {
-			raw = unescaped
+	for _, format := range formats {
+		if !received[format] {
+			return "", fmt.Errorf("PVWA SSH key cache did not return the requested %s key", format)
 		}
 	}
-
-	if os.Getenv("SOGARK_DEBUG") != "" {
-		fmt.Fprintf(os.Stderr, "[DEBUG] FetchSSHKeys: fallback to raw text (%d bytes)\n", len(raw))
-	}
-
-	return raw, nil
+	return strings.Join(parts, "\n"), nil
 }

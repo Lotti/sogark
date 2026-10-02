@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,40 +32,75 @@ func newConfigInitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: msg.ConfigInitShort,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			// Start from existing config or defaults
 			cfg := config.Defaults()
-			if existing, err := config.Load(); err == nil {
+			existing, loadErr := config.Load()
+			legacy := errors.Is(loadErr, config.ErrLegacyAuthConfig)
+			if loadErr == nil {
 				cfg = *existing
+			} else if legacy {
+				if existing != nil {
+					cfg = *existing
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), "[i] Rebuilding the authentication profiles; existing non-authentication settings are retained.")
+			} else if !errors.Is(loadErr, config.ErrConfigNotFound) {
+				return loadErr
 			}
 
-			fmt.Println(msg.ConfigInitTitle)
-			fmt.Println("─────────────────────")
+			fmt.Fprintln(cmd.OutOrStdout(), msg.ConfigInitTitle)
+			fmt.Fprintln(cmd.OutOrStdout(), "─────────────────────")
 
-			prompter := newPrompter(os.Stdin, os.Stdout)
-			prompterClosed := false
+			prompter, err := newPrompter(cmd.InOrStdin(), cmd.OutOrStdout())
+			if err != nil {
+				return err
+			}
 			defer func() {
-				if !prompterClosed {
-					_ = prompter.Close()
-				}
+				err = errors.Join(err, prompter.Close())
 			}()
 			ask := func(label, current string) (string, error) {
-				return prompter.Prompt(label, current)
+				value, err := prompter.Prompt(label, current)
+				if err != nil {
+					return "", fmt.Errorf("configuration wizard interrupted; existing configuration unchanged: %w", err)
+				}
+				return value, nil
 			}
-			var err error
 
 			cfg.Username, err = ask(msg.ConfigInitUsername, cfg.Username)
 			if err != nil {
 				return err
 			}
-			cfg.PVWABaseURL, err = ask("PVWA Base URL", cfg.PVWABaseURL)
+			if cfg.AuthProfile == "" {
+				cfg.AuthProfile = "primary"
+			}
+			cfg.AuthProfile, err = ask("Authentication profile name", cfg.AuthProfile)
 			if err != nil {
 				return err
 			}
-			cfg.IDPURL, err = ask("IDP URL", cfg.IDPURL)
+			profile := cfg.AuthProfiles[cfg.AuthProfile]
+			if profile.AuthType == "" {
+				profile.AuthType = "saml"
+			}
+			profile.AuthType, err = ask("Authentication type (saml or oidc)", profile.AuthType)
 			if err != nil {
 				return err
 			}
+			profile.AuthType = strings.ToLower(strings.TrimSpace(profile.AuthType))
+			if profile.AuthType != "saml" && profile.AuthType != "oidc" {
+				return fmt.Errorf("authentication type must be saml or oidc")
+			}
+			fields := profile.Fields()
+			for _, name := range profile.RequiredFields() {
+				*fields[name], err = ask(name, *fields[name])
+				if err != nil {
+					return err
+				}
+			}
+			if cfg.AuthProfiles == nil {
+				cfg.AuthProfiles = make(map[string]config.AuthProfile)
+			}
+			cfg.AuthProfiles[cfg.AuthProfile] = profile
 			cfg.ProxyHost, err = ask("Proxy host", cfg.ProxyHost)
 			if err != nil {
 				return err
@@ -92,7 +128,6 @@ func newConfigInitCmd() *cobra.Command {
 			if err := prompter.Close(); err != nil {
 				return err
 			}
-			prompterClosed = true
 
 			normalizedFormats, err := config.NormalizeKeyFormats(splitCSV(formatsStr))
 			if err != nil {
@@ -104,12 +139,19 @@ func newConfigInitCmd() *cobra.Command {
 				return err
 			}
 
+			if legacy {
+				backup, err := config.Backup()
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "[+] Previous configuration backed up to %s\n", backup)
+			}
 			if err := cfg.Save(); err != nil {
 				return err
 			}
 
 			path, _ := config.Path()
-			fmt.Printf(msg.ConfigSavedAt, path)
+			fmt.Fprintf(cmd.OutOrStdout(), msg.ConfigSavedAt, path)
 			return nil
 		},
 	}

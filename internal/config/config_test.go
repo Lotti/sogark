@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -23,8 +24,8 @@ func TestDefaults(t *testing.T) {
 	if cfg.KeyTTLHours != DefaultKeyTTLHours {
 		t.Errorf("KeyTTLHours: got %d, want %d", cfg.KeyTTLHours, DefaultKeyTTLHours)
 	}
-	if cfg.SAMLTimeoutMinutes != DefaultSAMLTimeoutMin {
-		t.Errorf("SAMLTimeoutMinutes: got %d, want %d", cfg.SAMLTimeoutMinutes, DefaultSAMLTimeoutMin)
+	if cfg.AuthTimeoutMinutes != DefaultAuthTimeoutMin {
+		t.Errorf("AuthTimeoutMinutes: got %d, want %d", cfg.AuthTimeoutMinutes, DefaultAuthTimeoutMin)
 	}
 	if len(cfg.KeyFormats) != 3 {
 		t.Errorf("KeyFormats length: got %d, want 3", len(cfg.KeyFormats))
@@ -33,8 +34,8 @@ func TestDefaults(t *testing.T) {
 		t.Errorf("MobaMaxSessions: got %d, want 20", cfg.MobaMaxSessions)
 	}
 	// Company-specific fields are empty by default
-	if cfg.PVWABaseURL != "" {
-		t.Errorf("PVWABaseURL should be empty by default, got %q", cfg.PVWABaseURL)
+	if cfg.AuthProfile != "" || len(cfg.AuthProfiles) != 0 {
+		t.Error("authentication profiles should be empty by default")
 	}
 	if cfg.ProxyHost != "" {
 		t.Errorf("ProxyHost should be empty by default, got %q", cfg.ProxyHost)
@@ -59,8 +60,9 @@ func TestSet_ValidKeys(t *testing.T) {
 		check func() bool
 	}{
 		{"username", "mario.rossi", func() bool { return cfg.Username == "mario.rossi" }},
-		{"pvwa_base_url", "https://example.com", func() bool { return cfg.PVWABaseURL == "https://example.com" }},
-		{"idp_url", "https://idp.example.com", func() bool { return cfg.IDPURL == "https://idp.example.com" }},
+		{"auth_profile", "primary", func() bool { return cfg.AuthProfile == "primary" }},
+		{"auth_profiles.primary.tenant_id", "EXAMPLE", func() bool { return cfg.AuthProfiles["primary"].TenantID == "EXAMPLE" }},
+		{"auth_timeout_minutes", "5", func() bool { return cfg.AuthTimeoutMinutes == 5 }},
 		{"proxy_host", "proxy.example.com", func() bool { return cfg.ProxyHost == "proxy.example.com" }},
 		{"key_dir", "/tmp/keys", func() bool { return cfg.KeyDir == "/tmp/keys" }},
 		{"default_ssh_user", "admin", func() bool { return cfg.DefaultSSHUser == "admin" }},
@@ -94,8 +96,8 @@ func TestSet_KeyFormats(t *testing.T) {
 func TestValidate(t *testing.T) {
 	cfg := Defaults()
 	cfg.Username = "mario.rossi"
-	cfg.PVWABaseURL = "https://cyberark.example.com/PasswordVault"
-	cfg.IDPURL = "https://idp.example.com/login"
+	cfg.AuthProfile = "primary"
+	cfg.AuthProfiles["primary"] = testProfile()
 	cfg.ProxyHost = "psmp.example.com"
 	cfg.DefaultSSHUser = "root"
 	cfg.SSHKeyName = "id_sogark"
@@ -107,8 +109,6 @@ func TestValidate(t *testing.T) {
 
 func TestValidate_InvalidConfig(t *testing.T) {
 	cfg := Defaults()
-	cfg.PVWABaseURL = "notaurl"
-	cfg.IDPURL = "still-not-a-url"
 	cfg.SSHKeyName = "nested/path"
 	cfg.KeyFormats = []string{"bad"}
 
@@ -117,7 +117,7 @@ func TestValidate_InvalidConfig(t *testing.T) {
 		t.Fatal("Validate() should fail")
 	}
 
-	want := []string{"username", "pvwa_base_url", "idp_url", "proxy_host", "default_ssh_user", "ssh_key_name", "key_formats"}
+	want := []string{"username", "auth_profile", "auth_profiles", "proxy_host", "default_ssh_user", "ssh_key_name", "key_formats"}
 	for _, item := range want {
 		if !strings.Contains(err.Error(), item) {
 			t.Errorf("Validate() error missing %q: %v", item, err)
@@ -225,7 +225,8 @@ func TestResolveKeyDir_Tilde(t *testing.T) {
 func TestShow(t *testing.T) {
 	cfg := Defaults()
 	cfg.Username = "mario.rossi"
-	cfg.PVWABaseURL = "https://cyberark.example.com/PasswordVault"
+	cfg.AuthProfile = "primary"
+	cfg.AuthProfiles["primary"] = testProfile()
 	cfg.ProxyHost = "psmp.example.com"
 	cfg.DefaultSSHUser = "root"
 	cfg.SSHKeyName = "id_example"
@@ -246,13 +247,110 @@ func TestShow(t *testing.T) {
 	}
 }
 
-func TestShow_LongIDPURLTruncated(t *testing.T) {
+func TestShow_ProfileEndpoints(t *testing.T) {
 	cfg := Defaults()
-	cfg.IDPURL = "https://idp.example.com/login?param1=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa&param2=bbbbbbb"
+	cfg.AuthProfile = "primary"
+	cfg.AuthProfiles["primary"] = testProfile()
 	output := cfg.Show()
-	// Long IDP URL should be truncated with "..."
-	if !strings.Contains(output, "...") {
-		t.Error("Show() should truncate long IDP URLs")
+	if !strings.Contains(output, "saml_bootstrap_url") || !strings.Contains(output, cfg.AuthProfiles["primary"].SAMLBootstrapURL) {
+		t.Error("Show() should display the profile endpoints")
+	}
+}
+
+func testProfile() AuthProfile {
+	return AuthProfile{
+		AuthType: "saml", TenantID: "EXAMPLE",
+		PVWABaseURL:              "https://cyberark.example.com/vault",
+		StartAuthenticationURL:   "https://identity.example.com/start",
+		AdvanceAuthenticationURL: "https://identity.example.com/advance",
+		SAMLBootstrapURL:         "https://cyberark.example.com/bootstrap",
+		SAMLLogonURL:             "https://cyberark.example.com/logon",
+		SSHKeysCacheURL:          "https://cyberark.example.com/cache",
+	}
+}
+
+func TestSelectedProfileValidation(t *testing.T) {
+	for _, change := range []func(*AuthProfile){
+		func(p *AuthProfile) { p.TenantID = "" },
+		func(p *AuthProfile) { p.AuthType = "auto" },
+		func(p *AuthProfile) { p.StartAuthenticationURL = "http://identity.example.com/start" },
+		func(p *AuthProfile) { p.SAMLBootstrapURL = "https://other.example.com/bootstrap" },
+		func(p *AuthProfile) {
+			p.AdvanceAuthenticationURL = "https://identity.example.com/advance?state=private"
+		},
+		func(p *AuthProfile) { p.SAMLLogonURL = "https://user:password@cyberark.example.com/logon" },
+	} {
+		p := testProfile()
+		change(&p)
+		if err := p.Validate(); err == nil {
+			t.Fatal("expected invalid profile error")
+		}
+	}
+	cfg := Defaults()
+	cfg.AuthProfile = "missing"
+	cfg.AuthProfiles["primary"] = testProfile()
+	if _, err := cfg.SelectedAuthProfile(); err == nil {
+		t.Fatal("must not fall back to another profile")
+	}
+}
+
+func TestLegacyConfigurationIsPreserved(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	path, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, legacy := range []string{"idp_url", "identity_url", "pvwa_base_url"} {
+		data := []byte("username: user\n" + legacy + ": https://example.com\n")
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := Load(); !errors.Is(err, ErrLegacyAuthConfig) {
+			t.Fatalf("expected explicit migration error for %s, got %v", legacy, err)
+		}
+		after, err := os.ReadFile(path)
+		if err != nil || string(after) != string(data) {
+			t.Fatal("loading legacy config must not change it")
+		}
+	}
+}
+
+func TestFileOverrideLoadAndSave(t *testing.T) {
+	setTestHome(t, t.TempDir())
+	original, err := Path()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Defaults()
+	cfg.Username = "original"
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	FileOverride = filepath.Join(t.TempDir(), "private.yaml")
+	t.Cleanup(func() { FileOverride = "" })
+	cfg.Username = "candidate"
+	cfg.AuthProfile = "primary"
+	cfg.AuthProfiles["primary"] = testProfile()
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := Load()
+	if err != nil || loaded.Username != "candidate" || len(loaded.AuthProfiles) != 1 {
+		t.Fatalf("override round trip failed: %v", err)
+	}
+	data, err := os.ReadFile(original)
+	if err != nil || !strings.Contains(string(data), "original") || strings.Contains(string(data), "candidate") {
+		t.Fatal("the default configuration was changed")
+	}
+	info, err := os.Stat(FileOverride)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatalf("config permissions = %o", info.Mode().Perm())
 	}
 }
 

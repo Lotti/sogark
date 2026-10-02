@@ -18,9 +18,9 @@
 
 | Piattaforma | Requisiti |
 |-------------|-----------|
-| macOS | Qualsiasi versione recente; Chrome o Edge per SAML/MFA |
-| Linux | Qualsiasi distribuzione; Chrome o Chromium per SAML/MFA |
-| Windows | **Windows 10 o 11** (richiesto — PowerShell 5.1 built-in necessario per SAML/MFA e rilevamento processi) |
+| macOS | Terminale interattivo e accesso a Identity/PVWA |
+| Linux | Terminale interattivo; nessuna sessione grafica o browser richiesti |
+| Windows | **Windows 10 o 11**; PowerShell built-in usato solo da funzionalità non autenticative |
 
 ### macOS / Linux
 
@@ -59,7 +59,10 @@ sogark update --check       # controlla senza aggiornare
 sogark update --version v1.2.0  # installa versione specifica
 ```
 
-Ogni release include anche `checksums.txt`, `checksums.txt.sig` e `checksums.txt.pem` per la verifica manuale o automatizzata della provenienza dei file pubblicati.
+Ogni release include `checksums.txt` e `checksums.txt.bundle`, che contiene
+la firma e il certificato Sigstore keyless. Installazione e aggiornamento
+verificano il checksum SHA-256; la provenienza si puo verificare
+separatamente tramite il bundle.
 
 ---
 
@@ -69,7 +72,21 @@ Ogni release include anche `checksums.txt`, `checksums.txt.sig` e `checksums.txt
 sogark config init
 ```
 
-Il wizard chiede tutti i parametri necessari. Nessun valore è pre-compilato: tutti gli URL e hostname vanno inseriti manualmente alla prima esecuzione.
+Il wizard chiede tutti i parametri necessari. Nessun endpoint aziendale
+è pre-compilato: URL, tenant e hostname vanno inseriti alla prima configurazione.
+Il nome iniziale proposto è `primary` e il protocollo proposto è `saml`;
+sono modificabili e non determinano alcun endpoint o tenant.
+
+Dopo l'aggiornamento, una configurazione priva della nuova struttura viene
+bloccata prima dei comandi applicativi. Eseguire `sogark config init`, oppure
+`sogark --config <file> config init` per un file alternativo. Il wizard
+mantiene username, PSMP, directory e nomi chiavi e altre impostazioni
+esistenti; prima del salvataggio crea una copia `config.yaml.legacy-*.bak`.
+Ctrl+C o fine dell'input annullano l'operazione senza modificare il file.
+
+Il wizard supporta Backspace, Delete e spostamento del cursore. Gli spazi
+iniziali e finali vengono rimossi, anche dai valori proposti; gli spazi
+interni ai percorsi vengono mantenuti. Invio accetta il valore proposto.
 
 Per modificare un singolo parametro:
 
@@ -78,15 +95,25 @@ sogark config set username mario.rossi
 sogark config show
 ```
 
-### Esempio configurazione Sogei
+### Esempio configurazione generica SAML
 
-> I valori seguenti sono specifici dell'ambiente Sogei.
+Gli URL sono esempi, non endpoint preconfigurati. Devono essere comunicati
+dall'amministratore CyberArk insieme al tenant e al protocollo corretto.
 
 ```yaml
-username: mario.rossi
-pvwa_base_url: https://cyberark.sogei.it/PasswordVault
-idp_url: https://aag4837.my.idaptive.app/login?yfirtnecapplogin=true&appKey=0f8346cb-fc6f-4ed4-9ebc-e2fcf5ae90c8&customerId=AAG4837&stateId=hFdfLAHPLkyZj2ml2B5cjMBjVjnT6AZd42pjywyZBoU1&yfirtnecrun=true
-proxy_host: psmp.sogei.it
+username: user@example.com
+auth_profile: primary
+auth_profiles:
+  primary:
+    auth_type: saml
+    tenant_id: EXAMPLE
+    pvwa_base_url: https://vault.example.com/PasswordVault
+    start_authentication_url: https://identity.example.com/Security/StartAuthentication
+    advance_authentication_url: https://identity.example.com/Security/AdvanceAuthentication
+    saml_bootstrap_url: https://vault.example.com/PasswordVault/api/auth/saml/logon
+    saml_logon_url: https://vault.example.com/PasswordVault/API/auth/SAML/Logon/
+    ssh_keys_cache_url: https://vault.example.com/PasswordVault/API/Users/Secret/SSHKeys/Cache
+proxy_host: psmp.example.com
 ssh_key_name: id_sogark
 key_dir: ~/.sogark/keys
 key_formats:
@@ -94,7 +121,7 @@ key_formats:
   - PEM
   - PPK
 key_ttl_hours: 4
-saml_timeout_minutes: 5
+auth_timeout_minutes: 2
 default_ssh_user: root
 default_scp_user: oper1
 ```
@@ -106,14 +133,14 @@ default_scp_user: oper1
 | Chiave | Tipo | Default | Descrizione |
 |--------|------|---------|-------------|
 | `username` | stringa | — | Username aziendale per l'autenticazione |
-| `pvwa_base_url` | URL | — | URL base del PVWA (es. `https://cyberark.example.com/PasswordVault`) |
-| `idp_url` | URL | — | URL dell'Identity Provider SAML per il login MFA |
+| `auth_profile` | stringa | — | Nome del profilo attivo |
+| `auth_profiles` | mappa | vuota | Tenant, protocollo e URL API completi per ciascun profilo |
 | `proxy_host` | hostname | — | Hostname del PSMP proxy (es. `psmp.example.com`) |
 | `ssh_key_name` | stringa | — | Nome base del file chiave SSH (es. `id_sogark`) |
 | `key_dir` | path | `~/.sogark/keys` | Directory dove vengono salvate le chiavi SSH temporanee |
 | `key_formats` | lista | `OpenSSH,PEM,PPK` | Formati chiave da scaricare |
 | `key_ttl_hours` | intero | `4` | Durata in ore delle chiavi SSH temporanee |
-| `saml_timeout_minutes` | intero | `5` | Timeout in minuti per completare l'autenticazione SAML |
+| `auth_timeout_minutes` | intero | `2` | Timeout in minuti per QR/push e logon PVWA |
 | `default_ssh_user` | stringa | — | Utente target SSH di default (es. `root`) |
 | `default_scp_user` | stringa | — | Utente target SCP. Se vuoto, usa `default_ssh_user` |
 | `moba_path` | path | auto-detect | Percorso eseguibile MobaXterm |
@@ -154,7 +181,29 @@ sogark doctor                               # valida config e prerequisiti local
 sogark login                                # login SAML/MFA + scarica chiavi
 sogark login --user altro.utente
 sogark login --format pem
+sogark --config ~/.sogark/private.yaml login
 ```
+
+Il QR viene mostrato nel terminale; dopo la scansione, approva la notifica push.
+Il rendering compatto dimezza larghezza e altezza rispetto ai blocchi interi,
+senza modificare i moduli del QR o il bordo bianco. Se il terminale e troppo
+piccolo, l'errore indica colonne e righe minime: ingrandiscilo o riduci il font.
+Su Windows usa una console PowerShell o Windows Terminal: sogark legge le
+dimensioni dall'output e abilita temporaneamente i colori del QR, senza WinForms.
+Il meccanismo `OTP` di questo flusso viene avviato come push, non come codice
+da digitare. Se QR manca, sogark non passa automaticamente a password, SMS o
+un altro profilo.
+
+Il flag globale `--config` seleziona un file alternativo senza cambiare
+`config.yaml`. Per modificare un campo del profilo:
+
+```bash
+sogark --config ~/.sogark/private.yaml config set auth_profile primary
+sogark --config ~/.sogark/private.yaml config set auth_profiles.primary.tenant_id EXAMPLE
+```
+
+Consulta la [guida di migrazione](native-api-migration.md) per OIDC, endpoint
+richiesti, limiti del proxy e sostituzione delle configurazioni legacy.
 
 ### `sogark keys`
 

@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 
-	"github.com/Lotti/sogark/internal/auth"
 	"github.com/Lotti/sogark/internal/config"
 	msg "github.com/Lotti/sogark/internal/messages"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 func newDoctorCmd() *cobra.Command {
@@ -52,11 +53,10 @@ func newDoctorCmd() *cobra.Command {
 				fmt.Printf(msg.DoctorCheckOK, "ssh client", path)
 			}
 
-			if path, err := auth.SAMLPrerequisite(); err != nil {
-				fmt.Printf(msg.DoctorCheckFailed, "saml prerequisite", err)
-				issues++
+			if term.IsTerminal(int(os.Stdin.Fd())) {
+				fmt.Printf(msg.DoctorCheckOK, "QR authentication", "interactive terminal")
 			} else {
-				fmt.Printf(msg.DoctorCheckOK, "saml prerequisite", path)
+				fmt.Printf(msg.DoctorCheckInfo, "QR authentication", "run login in an interactive terminal")
 			}
 
 			if runtime.GOOS != "windows" {

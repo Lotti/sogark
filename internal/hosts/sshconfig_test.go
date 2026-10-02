@@ -6,12 +6,12 @@ import (
 )
 
 func TestBuildSSHConfigEntry(t *testing.T) {
-	entry := buildSSHConfigEntry("myhost", "10.0.0.1", "mario.rossi", "root", "psmp.sogei.it", "/home/user/.sogark/keys/id_sogark")
+	entry := buildSSHConfigEntry("myhost", "10.0.0.1", "mario.rossi", "root", "psmp.example.com", "/home/user/.sogark/keys/id_sogark")
 
 	mustContain := []string{
 		"# --- sogark:myhost ---",
 		"Host myhost",
-		"HostName psmp.sogei.it",
+		"HostName psmp.example.com",
 		"User mario.rossi@root@10.0.0.1",
 		"IdentityFile /home/user/.sogark/keys/id_sogark",
 		"# --- /sogark:myhost ---",
@@ -30,7 +30,7 @@ func TestRemoveSSHConfigEntry(t *testing.T) {
 
 # --- sogark:myhost ---
 Host myhost
-    HostName psmp.sogei.it
+    HostName psmp.example.com
     User user@root@10.0.0.1
     IdentityFile /path/to/key
 # --- /sogark:myhost ---

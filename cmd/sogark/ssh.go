@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,9 @@ func newSSHCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, keyFormat, forceLogin, dryRun, host, sshExtraArgs, err := parseSSHFlags(args)
 			if err != nil {
+				if err.Error() == "help" {
+					return cmd.Help()
+				}
 				return err
 			}
 			if host == "" {
@@ -119,6 +123,15 @@ func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bo
 		switch {
 		case a == "--verbose":
 			os.Setenv("SOGARK_DEBUG", "1")
+		case !hostFound && a == "--config":
+			i++
+			if i >= len(args) {
+				err = fmt.Errorf(msg.FlagRequiresValue, a)
+				return
+			}
+			config.FileOverride = args[i]
+		case !hostFound && strings.HasPrefix(a, "--config="):
+			config.FileOverride = strings.TrimPrefix(a, "--config=")
 		case !hostFound && a == "--dry-run":
 			dryRun = true
 		case !hostFound && a == "--force-login":
@@ -157,26 +170,43 @@ func parseSSHFlags(args []string) (user, keyFormat string, forceLogin, dryRun bo
 	return
 }
 
-// doLogin performs the full SAML login + key fetch flow.
+// doLogin performs Identity QR/push, the selected PVWA logon and key download.
 func doLogin(cfg *config.Config) error {
 	return doLoginWithFormats(cfg, cfg.KeyFormats)
 }
 
 func doLoginWithFormats(cfg *config.Config, formats []string) error {
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
 	normalizedFormats, err := config.NormalizeKeyFormats(formats)
 	if err != nil {
 		return err
 	}
 
-	samlResponse, err := auth.SAMLResponse(signalCtx, cfg.IDPURL, cfg.SAMLTimeoutMinutes)
+	profile, err := cfg.SelectedAuthProfile()
 	if err != nil {
 		return err
 	}
-
-	client := auth.NewClient(cfg.PVWABaseURL)
-	if err := client.Logon(signalCtx, samlResponse); err != nil {
+	client, err := auth.NewNativeClient(profile)
+	if err != nil {
 		return err
 	}
+	prompter, err := auth.NewTerminalPrompter(os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	authCtx, cancel := context.WithTimeout(signalCtx, time.Duration(cfg.AuthTimeoutMinutes)*time.Minute)
+	defer cancel()
+	fmt.Printf("[*] Authentication profile: %s (%s)\n", cfg.AuthProfile, profile.AuthType)
+	if err := client.AuthenticateIdentity(authCtx, cfg.Username, prompter); err != nil {
+		return err
+	}
+	fmt.Println("[+] Identity QR/push authentication complete")
+	if err := client.EstablishPVWA(authCtx); err != nil {
+		return err
+	}
+	cancel()
 
 	fmt.Println(msg.DownloadingKeys)
 	raw, err := client.FetchSSHKeys(signalCtx, normalizedFormats)
@@ -186,6 +216,9 @@ func doLoginWithFormats(cfg *config.Config, formats []string) error {
 
 	parsed, err := keys.Parse(raw)
 	if err != nil {
+		return err
+	}
+	if err := parsed.RequireFormats(normalizedFormats); err != nil {
 		return err
 	}
 
@@ -201,8 +234,11 @@ func doLoginWithFormats(cfg *config.Config, formats []string) error {
 
 	if os.Getenv("SOGARK_DEBUG") != "" {
 		for _, r := range results {
-			data, _ := os.ReadFile(r.Path)
-			fmt.Fprintf(os.Stderr, "[DEBUG] Saved %s (%d bytes), first 100 chars: %q\n", r.Path, len(data), truncate(string(data), 100))
+			info, err := os.Stat(r.Path)
+			if err != nil {
+				return fmt.Errorf("inspect saved key: %w", err)
+			}
+			fmt.Fprintf(os.Stderr, "[DEBUG] Saved %s (%d bytes, format=%s)\n", r.Path, info.Size(), r.Format)
 		}
 	}
 
@@ -226,11 +262,4 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%dh %dm", h, m)
 	}
 	return fmt.Sprintf("%dm", m)
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n] + "..."
 }
