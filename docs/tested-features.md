@@ -2,6 +2,16 @@
 
 Elenco delle funzionalità verificate in sessioni di test manuali e confermate come funzionanti.
 
+## Milestone v0.3.0 - 2026-10-02
+
+La release **v0.3.0 è confermata funzionante su Windows e Linux**.
+Il collaudo manuale dell'utente su Linux, successivo alla pubblicazione,
+conferma il flusso nativo completo **QR/push → SAML PVWA → download chiavi**,
+non soltanto il rendering QR o i test automatici.
+
+OIDC resta sperimentale; login nativo e console macOS non sono ancora
+confermati dal vivo.
+
 ---
 
 ## ✅ Autenticazione e chiavi
@@ -10,9 +20,9 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 |---|---|---|
 | Login browser SAML/MFA della release precedente | macOS, Windows | Verifica storica, non applicabile al nuovo flusso API |
 | Script API nativo di riferimento QR/push + SAML + download | Windows | Confermato dall'utente; non equivale a una verifica del nuovo binario Go |
-| Identity QR/push del nuovo binario Go | Linux | Scansione e approvazione push confermate dall'utente; bootstrap PVWA ancora bloccato |
+| Identity QR/push del nuovo binario Go | Linux | Scansione e approvazione push confermate; flusso completo verificato in v0.3.0 |
 | Rendering QR compatto del nuovo binario Go | Linux | Visualizzazione e scansione confermate dall'utente |
-| Nuovo login Go QR/push + SAML + download chiavi | Windows | Flusso completo confermato dall'utente sulla rete di destinazione |
+| Nuovo login Go QR/push + SAML + download chiavi | Windows, Linux | Flusso completo confermato dall'utente; collaudo Linux di v0.3.0 il 2026-10-02 |
 | Download chiavi OpenSSH, PEM, PPK della release precedente | macOS, Windows | |
 | Validazione TTL chiavi (4h) | macOS, Windows | |
 | Auto-login da `sogark ssh` se chiave scaduta | macOS, Windows | |
@@ -88,7 +98,6 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 | `default_scp_user` | Implementato, non testato |
 | `moba_max_sessions` | Implementato, non testato |
 | Altri target Windows | Build OK; verifica reale effettuata solo con la candidata amd64 |
-| Login SAML completo su Linux | QR/push e rendering verificati; PVWA e download da provare sulla rete di destinazione |
 | `sogark keys clean` | Implementato, non testato |
 | Nuovo login Go QR/push + OIDC + cache chiavi | Coperto da test di contratto; utenza reale abilitata necessaria |
 | Nuovo wizard di migrazione su macOS | Cross-build amd64/arm64 riuscite; verifica della console macOS ancora necessaria |
@@ -104,4 +113,4 @@ Elenco delle funzionalità verificate in sessioni di test manuali e confermate c
 
 ---
 
-*Ultimo aggiornamento: ottobre 2026*
+*Ultimo aggiornamento: 2026-10-02*

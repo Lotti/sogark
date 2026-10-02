@@ -52,8 +52,8 @@ I test di contratto dei due protocolli non sostituiscono la verifica reale.
 
 - Windows: confermati QR/push, SAML, download chiavi, SSH, SCP, MobaXterm
   e controllo config/input del wizard.
-- Linux: confermati QR/push e rendering; il download completo nella rete
-  di destinazione resta da verificare.
+- Linux: confermato dall'utente il flusso completo QR/push, SAML PVWA e
+  download chiavi con v0.3.0 il 2026-10-02, dopo la pubblicazione.
 - OIDC: sperimentale, implementato e coperto da test automatici ma non
   ancora verificato con un'utenza reale abilitata.
 - macOS: build e test portabili disponibili; console e login nativo

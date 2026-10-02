@@ -133,7 +133,8 @@ Una suite di mock o una risposta HTTP 200 non basta a dichiarare verificata
 un'installazione CyberArk.
 
 Il nuovo flusso Go QR/push, SAML e download chiavi e stato confermato dal vivo
-su Windows amd64 nella rete di destinazione. Su Linux sono confermati QR/push
-e rendering, non ancora il download completo nella stessa rete.
+su Windows e Linux. Il 2026-10-02 l'utente ha confermato il funzionamento
+completo della release v0.3.0 anche su Linux, incluso il download chiavi.
+La milestone e registrata in [Funzionalita testate](tested-features.md).
 OIDC e implementato e coperto da test di contratto, ma resta sperimentale
 finche non viene verificato con un'utenza abilitata.
