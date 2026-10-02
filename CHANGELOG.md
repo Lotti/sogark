@@ -45,7 +45,7 @@ prima di salvare la migrazione. I file gia configurati con
 
 ### Migration
 
-Consultare [docs/native-api-migration.md](docs/native-api-migration.md).
+Consultare la [guida di migrazione](https://github.com/Lotti/sogark/blob/v0.3.0/docs/native-api-migration.md).
 I test di contratto dei due protocolli non sostituiscono la verifica reale.
 
 ### Stato della verifica reale
