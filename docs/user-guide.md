@@ -205,6 +205,26 @@ sogark --config ~/.sogark/private.yaml config set auth_profiles.primary.tenant_i
 Consulta la [guida di migrazione](native-api-migration.md) per OIDC, endpoint
 richiesti, limiti del proxy e sostituzione delle configurazioni legacy.
 
+### `sogark password`
+
+Trova l'account PVWA per nome macchina e utente target, quindi copia la
+password nella clipboard. La ricerca segue il criterio del playbook Ansible:
+hostname breve o FQDN, username e tutti i Safe accessibili. Richiede QR/push
+e rispetta permessi e approvazioni configurati in CyberArk. Se richiesto dalla
+policy, passa motivo e ticket:
+
+```bash
+sogark password app01 --reason "manutenzione" --ticket INC001234
+sogark password app01.example.org --user root
+```
+
+`--user` è facoltativo e usa `default_ssh_user` se omesso. Se la ricerca trova
+più account, il comando si ferma senza copiare una password. Il segreto non
+viene mostrato nel terminale. Su Linux è necessario `wl-copy` oppure `xclip`;
+macOS usa `pbcopy`, Windows `clip.exe`. L'endpoint di retrieve è pensato per
+uso umano interattivo, non per automazioni; per quelle CyberArk indica l'uso
+dei Credential Provider/AAM.
+
 ### `sogark keys`
 
 ```bash

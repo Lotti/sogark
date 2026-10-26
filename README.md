@@ -186,6 +186,19 @@ Per la configurazione degli endpoint e la migrazione consulta
 
 ---
 
+### sogark password
+
+Cerca l'account CyberArk per nome macchina e utente target, poi copia la password nella clipboard del sistema operativo. La ricerca segue il criterio usato dal playbook Ansible CyberArk: Safe accessibili, hostname breve o FQDN e username. Richiede QR/push e i permessi PVWA previsti dai Safe.
+
+```bash
+sogark password app01 --reason "manutenzione"
+sogark password app01.example.org --user root --reason "incident response" --ticket INC001234
+```
+
+`--user` è facoltativo e usa `default_ssh_user` se omesso. Se più account corrispondono, il comando si ferma senza copiare una password. La password non viene stampata nel terminale. Su Linux serve `wl-copy` oppure `xclip`; macOS usa `pbcopy` e Windows `clip.exe`. L'API PVWA è destinata all'uso umano interattivo; per processi automatici CyberArk indica i Credential Provider/AAM.
+
+---
+
 ### sogark keys
 
 ```bash
