@@ -10,6 +10,7 @@ import (
 
 	"github.com/Lotti/sogark/internal/config"
 	msg "github.com/Lotti/sogark/internal/messages"
+	sshpkg "github.com/Lotti/sogark/internal/ssh"
 	"github.com/spf13/cobra"
 )
 
@@ -39,6 +40,10 @@ func main() {
 	rootCmd := newRootCmd()
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
+		var commandExit *sshpkg.CommandExitError
+		if errors.As(err, &commandExit) {
+			os.Exit(commandExit.Code)
+		}
 		os.Exit(1)
 	}
 }
@@ -99,6 +104,7 @@ func newRootCmd() *cobra.Command {
 
 	commands := []*cobra.Command{
 		newSSHCmd(),
+		newExecCmd(),
 		newScpCmd(),
 		newLoginCmd(),
 		newPasswordCmd(),

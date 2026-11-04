@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.2 - 2026-11-04
+
+### Added
+
+- `exec [user@]host -- 'command'`: comando singolo dentro una shell
+  interattiva PSMP con PTY remoto (`ssh -tt`), attesa del prompt,
+  timeout separati, output delimitato e codice di uscita remoto.
+  Nessuna SSH Command session o dipendenza Python; rinnovo MFA interattivo.
+
 ## v0.3.1 - 2026-11-04
 
 ### Added

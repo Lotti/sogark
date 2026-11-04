@@ -195,6 +195,31 @@ Per la configurazione degli endpoint e la migrazione consulta
 
 ---
 
+### sogark exec
+
+Esegue un comando dentro una normale shell interattiva PSMP, non una
+SSH Command session. OpenSSH richiede il terminale remoto con `-tt`;
+non servono Python, pexpect o una libreria PTY locale.
+
+```bash
+sogark exec root@app01 -- 'id -u; hostname -f'
+sogark exec app01 --connect-timeout 120s --timeout 60s -- 'uname -a'
+sogark exec app01 --prompt '(?m)\[root@[^\]]*\]# *$' -- 'id'
+```
+
+Attende il prompt (90s di default), invia una riga e riconosce la fine
+tramite marcatori univoci, non tramite un secondo prompt. Stampa l'output
+combinato e restituisce lo stato del comando remoto. Il timeout del comando
+e 30s; l'output massimo e 4 MiB. Il comando deve essere una singola riga
+POSIX di massimo 2048 byte e non deve richiedere input interattivo.
+`TERM=dumb`, `PAGER=cat` e `SYSTEMD_PAGER=cat` limitano colori e paginazione.
+
+Il rinnovo chiavi richiede ancora QR/push interattivi. Prompt personalizzati
+richiedono `--prompt`; banner e menu PSMP non standard possono impedire
+il riconoscimento. Timeout o disconnessione non garantiscono l'annullamento
+dei processi remoti: il comando potrebbe essere gia stato eseguito.
+Non vengono fatti retry automatici. La verifica PSMP reale resta necessaria.
+
 ### sogark password
 
 Cerca l'account CyberArk per nome macchina e utente target, poi copia la password nella clipboard del sistema operativo. La ricerca segue il criterio usato dal playbook Ansible CyberArk: Safe accessibili, hostname breve o FQDN e username. Richiede QR/push e i permessi PVWA previsti dai Safe.
