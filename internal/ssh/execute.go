@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"runtime"
@@ -77,32 +76,20 @@ func (a *ConnectArgs) execute(ctx context.Context, command string, options Execu
 	token := hex.EncodeToString(nonce[:])
 	args := a.CommandLine()
 	// -tt allocates a remote PTY even though the local streams are pipes.
-	args = append([]string{args[0], "-tt", "-o", "BatchMode=yes"}, args[1:]...)
+	args = append([]string{args[0], "-tt"}, args[1:]...)
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	child := create(childCtx, args)
-	reader, writer, err := os.Pipe()
+	reader, stdin, wait, closeSession, err := startShell(child)
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
-	defer writer.Close()
-	child.Stdout, child.Stderr = writer, writer
-	stdin, err := child.StdinPipe()
-	if err != nil {
-		return err
-	}
-	defer stdin.Close()
-	if err := child.Start(); err != nil {
-		return fmt.Errorf("start interactive SSH: %w", err)
-	}
-	writer.Close()
 	done := make(chan error, 1)
-	go func() { done <- child.Wait() }()
+	go func() { done <- wait() }()
 	waited := false
 	defer func() {
 		cancel()
-		reader.Close()
+		closeSession()
 		if !waited {
 			<-done
 		}
@@ -113,12 +100,25 @@ func (a *ConnectArgs) execute(ctx context.Context, command string, options Execu
 	connectCtx, stopConnect := context.WithTimeout(ctx, options.ConnectTimeout)
 	defer stopConnect()
 	if err := session.awaitPrompt(connectCtx, prompt); err != nil {
-		return fmt.Errorf("wait for interactive SSH prompt: %w", err)
+		detail := terminalEscape.ReplaceAllString(session.buffer, "")
+		detail = strings.Map(func(r rune) rune {
+			if r < 32 && r != '\n' && r != '\t' {
+				return -1
+			}
+			return r
+		}, detail)
+		if len(detail) > 2048 {
+			detail = detail[len(detail)-2048:]
+		}
+		return fmt.Errorf("wait for interactive SSH prompt: %w\n%s", err, strings.TrimSpace(detail))
 	}
-	// Literal control bytes only appear in actual printf output, not PTY echo.
-	line := "stty -echo; printf '\\036" + token + ":start\\037\\n'; " +
+	if err := session.awaitReady(connectCtx, prompt, stdin, token); err != nil {
+		return fmt.Errorf("wait for target shell readiness: %w", err)
+	}
+	// Construct markers at runtime so the echoed input cannot match them.
+	line := "stty -echo; printf 'SOGARK_%s_start\\n' '" + token + "'; " +
 		"TERM=dumb PAGER=cat SYSTEMD_PAGER=cat sh -c " + shellQuote(command) +
-		"; __sogark_rc=$?; printf '\\036" + token + ":%s\\037\\n' \"$__sogark_rc\"\n"
+		"; __sogark_rc=$?; printf 'SOGARK_%s_end_%s_DONE\\n' '" + token + "' \"$__sogark_rc\"\n"
 	if _, err := io.WriteString(stdin, line); err != nil {
 		return fmt.Errorf("send shell command: %w", err)
 	}
@@ -203,17 +203,46 @@ func (s *shellStream) awaitPrompt(ctx context.Context, prompt *regexp.Regexp) er
 			s.buffer = ""
 			return nil
 		}
+
 		if err := s.next(ctx); err != nil {
 			return err
 		}
 	}
 }
 
+func (s *shellStream) awaitReady(ctx context.Context, prompt *regexp.Regexp, input io.Writer, token string) error {
+	marker := "SOGARK_" + token + "_ready"
+	probe := "printf 'SOGARK_%s_ready\\n' '" + token + "'\n"
+	if _, err := io.WriteString(input, probe); err != nil {
+		return err
+	}
+	for attempts := 1; attempts <= 10; {
+		s.buffer = terminalEscape.ReplaceAllString(s.buffer, "")
+		if strings.Contains(s.buffer, marker) {
+			s.buffer = ""
+			return nil
+		}
+		// Retry only harmless probes during PSMP's account switch.
+		if prompt.MatchString(strings.ReplaceAll(s.buffer, "\r", "")) {
+			s.buffer = ""
+			attempts++
+			if _, err := io.WriteString(input, probe); err != nil {
+				return err
+			}
+		}
+		if err := s.next(ctx); err != nil {
+			return err
+		}
+	}
+	return errors.New("too many intermediate shell prompts")
+}
+
 func (s *shellStream) awaitResult(ctx context.Context, token string) (string, int, error) {
-	start := "\x1e" + token + ":start\x1f"
-	end := "\x1e" + token + ":"
+	start := "SOGARK_" + token + "_start"
+	end := "SOGARK_" + token + "_end_"
 	started := false
 	for {
+		s.buffer = terminalEscape.ReplaceAllString(s.buffer, "")
 		if !started {
 			if index := strings.Index(s.buffer, start); index >= 0 {
 				s.buffer = s.buffer[index+len(start):]
@@ -223,7 +252,7 @@ func (s *shellStream) awaitResult(ctx context.Context, token string) (string, in
 		if started {
 			if index := strings.Index(s.buffer, end); index >= 0 {
 				remainder := s.buffer[index+len(end):]
-				if finish := strings.IndexByte(remainder, '\x1f'); finish >= 0 {
+				if finish := strings.Index(remainder, "_DONE"); finish >= 0 {
 					code, err := strconv.Atoi(remainder[:finish])
 					if err != nil || code < 0 || code > 255 {
 						return "", 0, errors.New("invalid command completion marker")

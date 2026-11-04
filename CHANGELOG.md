@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.3 - 2026-11-04
+
+### Fixed
+
+- `exec` su Windows usa un vero terminale ConPTY, con Invio e marcatori
+  compatibili con il terminale, anziche semplici pipe.
+- Verifica della shell con probe innocui durante il passaggio PSMP
+  all'account target: il comando non viene piu inviato al prompt intermedio.
+  Nessun retry del comando utente.
+- Rimossa l'imposizione di `BatchMode=yes`, non equivalente al login
+  interattivo funzionante. Errori prima del prompt mostrano la diagnostica SSH.
+- Verificato dal vivo su Windows con `id -u; hostname -f`.
+
 ## v0.3.2 - 2026-11-04
 
 ### Added
