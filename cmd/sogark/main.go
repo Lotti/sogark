@@ -101,6 +101,7 @@ func newRootCmd() *cobra.Command {
 		newSSHCmd(),
 		newScpCmd(),
 		newLoginCmd(),
+		newPasswordCmd(),
 		newKeysCmd(),
 		newConfigCmd(),
 		newDoctorCmd(),
