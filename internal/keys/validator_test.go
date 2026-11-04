@@ -124,10 +124,59 @@ func TestIsValid_AlmostExpired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("IsValid error: %v", err)
 	}
+
 	if !valid {
 		t.Error("key should still be valid")
 	}
 	if remaining > time.Minute {
 		t.Errorf("remaining should be less than 1 minute, got %v", remaining)
+	}
+}
+
+func TestIsValid_RequestedFormats(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		files   []string
+		formats []string
+		valid   bool
+	}{
+		{"missing PEM", []string{"id_test"}, []string{"OpenSSH", "PEM"}, false},
+		{"PEM only", []string{"id_test.pem"}, []string{"pem"}, true},
+		{"PPK only", []string{"id_test.ppk"}, []string{"PPK"}, true},
+		{"all requested", []string{"id_test.pem", "id_test.ppk"}, []string{"PEM", "PPK"}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range tt.files {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte("key"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := SaveTimestamp(dir); err != nil {
+				t.Fatal(err)
+			}
+			valid, _, err := IsValid(dir, "id_test", 4, tt.formats...)
+			if err != nil || valid != tt.valid {
+				t.Fatalf("IsValid = %v, %v; want %v", valid, err, tt.valid)
+			}
+		})
+	}
+}
+
+func TestIsValid_RejectsEmptyFilesAndDirectories(t *testing.T) {
+	dir := t.TempDir()
+	if err := SaveTimestamp(dir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "empty"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(dir, "directory"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"empty", "directory"} {
+		if valid, _, err := IsValid(dir, name, 4); err != nil || valid {
+			t.Fatalf("non-key %q accepted: valid=%v, error=%v", name, valid, err)
+		}
 	}
 }

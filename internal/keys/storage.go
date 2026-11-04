@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -77,7 +78,20 @@ func Clean(dir string, baseName string) ([]string, error) {
 }
 
 func writeKeyFile(path, content string) error {
-	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+	file, err := os.CreateTemp(filepath.Dir(path), ".sogark-key-*")
+	if err != nil {
+		return fmt.Errorf(msg.KeysWriteErr, path, err)
+	}
+	defer os.Remove(file.Name())
+
+	if err = protectKeyFile(file.Name()); err == nil {
+		_, err = file.WriteString(content)
+	}
+	err = errors.Join(err, file.Close())
+	if err == nil {
+		err = os.Rename(file.Name(), path)
+	}
+	if err != nil {
 		return fmt.Errorf(msg.KeysWriteErr, path, err)
 	}
 	return nil

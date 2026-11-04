@@ -52,8 +52,13 @@ func newScpCmd() *cobra.Command {
 				return err
 			}
 
+			keyName := cfg.SSHKeyName
+			if sf.keyFormat == "pem" {
+				keyName += ".pem"
+			}
+
 			// Check key validity
-			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
+			valid, remaining, _ := keys.IsValid(keyDir, keyName, cfg.KeyTTLHours)
 			if valid && !sf.forceLogin {
 				fmt.Printf(msg.KeyValid, formatDuration(remaining))
 			} else {
@@ -65,10 +70,6 @@ func newScpCmd() *cobra.Command {
 				}
 			}
 
-			keyName := cfg.SSHKeyName
-			if sf.keyFormat == "pem" {
-				keyName += ".pem"
-			}
 			keyPath := filepath.Join(keyDir, keyName)
 
 			// Detect #tag syntax in remote path args

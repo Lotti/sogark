@@ -2,6 +2,29 @@
 
 Elenco delle funzionalità verificate in sessioni di test manuali e confermate come funzionanti.
 
+## Candidata locale MFA v9 - 2026-11-03
+
+Il confronto con lo script v9 non ha richiesto cambiamenti ai protocolli
+Identity, SAML o OIDC. I test automatici Windows verificano directory
+alternative, selezione dei formati, rinnovo forzato e ACL native delle
+chiavi nuove e sostituite; test completi e vet passano.
+Sono state compilate candidate Windows amd64 e Linux amd64.
+
+La candidata Windows usa WinHTTP per le impostazioni proxy automatiche di
+sistema/utente e conserva la policy di autenticazione integrata `MEDIUM`.
+Test Windows con server locali verificano richieste, body, header, redirect
+e precedenza dei proxy d'ambiente. Non e stato eseguito un collaudo con il
+proxy aziendale autenticato.
+
+Il riesame dello ZIP ricevuto il 2026-11-03 conferma che lo script v9 e
+le guide sono identici, byte per byte, ai materiali precedentemente
+analizzati. Non introduce differenze al protocollo o ai formati.
+
+Queste verifiche usano fixture e server locali: non sono stati eseguiti
+login o download reali CyberArk. OIDC resta sperimentale.
+Il binario e la configurazione dell'installazione operativa non vengono
+sostituiti per il collaudo della candidata.
+
 ## Milestone v0.3.0 - 2026-10-02
 
 La release **v0.3.0 è confermata funzionante su Windows e Linux**.
@@ -113,4 +136,4 @@ confermati dal vivo.
 
 ---
 
-*Ultimo aggiornamento: 2026-10-02*
+*Ultimo aggiornamento: 2026-11-03*

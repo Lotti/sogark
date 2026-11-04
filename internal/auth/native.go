@@ -72,7 +72,7 @@ func NewNativeClient(profile config.AuthProfile) (*NativeClient, error) {
 		pollInterval: 2 * time.Second,
 	}
 	c.httpClient = &http.Client{
-		Jar: jar, Timeout: 30 * time.Second,
+		Jar: jar, Timeout: 30 * time.Second, Transport: newNativeTransport(),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				return errors.New("too many authentication redirects")

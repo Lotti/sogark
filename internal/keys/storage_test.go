@@ -145,6 +145,39 @@ func TestSave_FilePermissions(t *testing.T) {
 	}
 }
 
+func TestSave_ReplacesPermissiveFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "testkey")
+	if err := os.WriteFile(path, []byte("old-key"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Save(&Parsed{OpenSSH: "new-key"}, dir, "testkey", []string{"OpenSSH"}); err != nil {
+		t.Fatal(err)
+	}
+	checkFile(t, path, "new-key")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatalf("replacement key permissions = %o", info.Mode().Perm())
+	}
+}
+
+func TestSave_CleansStagedKeyOnReplacementFailure(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, "testkey"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Save(&Parsed{OpenSSH: "new-key"}, dir, "testkey", []string{"OpenSSH"}); err == nil {
+		t.Fatal("replacing a directory with a key must fail")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 || !entries[0].IsDir() || entries[0].Name() != "testkey" {
+		t.Fatalf("failed replacement left temporary files: %v, %v", entries, err)
+	}
+}
+
 func TestClean(t *testing.T) {
 	dir := t.TempDir()
 

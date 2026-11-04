@@ -69,8 +69,13 @@ func newSSHCmd() *cobra.Command {
 				return err
 			}
 
+			keyName := cfg.SSHKeyName
+			if keyFormat == "pem" {
+				keyName += ".pem"
+			}
+
 			// Check key validity
-			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
+			valid, remaining, _ := keys.IsValid(keyDir, keyName, cfg.KeyTTLHours)
 			if valid && !forceLogin {
 				fmt.Printf(msg.KeyValid, formatDuration(remaining))
 			} else {
@@ -82,11 +87,6 @@ func newSSHCmd() *cobra.Command {
 				}
 			}
 
-			// Determine key path
-			keyName := cfg.SSHKeyName
-			if keyFormat == "pem" {
-				keyName += ".pem"
-			}
 			keyPath := filepath.Join(keyDir, keyName)
 
 			connectArgs := &sshpkg.ConnectArgs{

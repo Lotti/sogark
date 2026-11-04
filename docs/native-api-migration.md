@@ -38,6 +38,27 @@ Per le prove scegliere un `key_dir` diverso dalla directory chiavi attiva.
 Il flag `--config` governa caricamento e salvataggio; senza flag rimane
 il percorso predefinito `~/.sogark/config.yaml`.
 
+### Prove parallele senza aggiornare l'installazione attiva
+
+Il solo `--config` non isola tutto lo stato: directory predefinite,
+registro host e cache delle versioni dipendono ancora dalla home.
+Usare un binario locale distinto, una home dedicata nel solo processo
+di prova e percorsi assoluti per configurazione e `key_dir`.
+Su Windows impostare USERPROFILE/HOME soltanto nel launcher della prova,
+ripristinandoli all'uscita; non cambiare il profilo Windows o il PATH globale.
+Una build locale con versione `dev` non avvia il controllo aggiornamenti.
+Non eseguire installer o `sogark update` per provare la candidata.
+
+Anche `ssh --dry-run` puo avviare il login se la chiave manca o e scaduta:
+non e un test offline del flusso. Per le prove automatiche usare server
+locali e chiavi sintetiche.
+
+L'isolamento locale non separa la cache sul server CyberArk: generare nuove
+chiavi per la stessa utenza potrebbe influire su quelle gia in uso.
+Concordare il test reale e preferire un'utenza distinta; se la coesistenza
+non e confermata, rinviare la prova. Non migrare automaticamente la
+registrazione dell'app o il tenant per effettuare un collaudo.
+
 ## Profili e URL
 
 `auth_profile` seleziona una voce di `auth_profiles`. Il nome e liberamente
@@ -111,11 +132,49 @@ Identity-only non sono sufficienti: gli URL e il tenant del profilo vanno
 configurati esplicitamente, senza deduzioni dall'hostname.
 Restano invariati username, formati, PSMP, directory, nomi file e TTL.
 
+## Compatibilita con lo script di riferimento v9
+
+Il confronto con `Get-MFA_Keys_v9.ps1` conferma che le sequenze Identity,
+PVWA SAML/OIDC e cache chiavi sono gia implementate. Le modifiche del
+parser PowerShell, lo sblocco dello script scaricato e la UI Windows non
+richiedono equivalenti nel client HTTP Go. Il client Windows ora usa WinHTTP
+per la configurazione proxy e l'autenticazione integrata con policy `MEDIUM`;
+il proxy aziendale specifico resta da collaudare dal vivo.
+
+Il passaggio al nuovo tenant richiede un profilo OIDC esplicito e un'app
+gia registrata su quel tenant. La registrazione del dispositivo e il
+login QR/push sono operazioni distinte: SMS/password indicati nelle guide
+di registrazione non diventano un fallback del login sogark.
+Il confronto statico e i test di contratto non costituiscono un collaudo
+reale OIDC.
+
+`keys --dir` usa la directory alternativa anche durante il download.
+La cache deve contenere tutti i formati richiesti; un PEM o PPK valido
+non richiede la presenza di OpenSSH. Su Windows ogni chiave viene
+preparata con proprietario e DACL privata dell'utente corrente prima
+della scrittura, anche quando sostituisce un file con ACL piu permissive.
+Su Unix resta il modo 0600. Errori di scrittura o protezione impediscono
+l'aggiornamento del timestamp di successo.
+
 ## Rete e protezione dati
 
-Go usa HTTP_PROXY, HTTPS_PROXY e NO_PROXY. Non eredita automaticamente il
-proxy di sistema Windows con DefaultNetworkCredentials. VPN e gateway
-di accesso possono quindi richiedere una preparazione della rete.
+Su Windows il client usa WinHTTP con configurazione proxy automatica,
+includendo le impostazioni di sistema e quelle dell'utente corrente.
+L'autenticazione integrata NTLM/Negotiate resta soggetta alla policy
+Windows `MEDIUM`: le credenziali predefinite sono usate solo per richieste
+considerate intranet da Windows. Non viene abbassata la policy per inviare
+credenziali a destinazioni arbitrarie. Questa modalita richiede Windows 8.1
+o successivo.
+
+Su Windows, `HTTP_PROXY` e `HTTPS_PROXY` espliciti mantengono precedenza
+sulla configurazione WinHTTP per il rispettivo schema; quando tali variabili
+sono usate, il trasporto Go applica `NO_PROXY`. In assenza di proxy espliciti,
+WinHTTP applica la propria configurazione e le relative eccezioni. macOS e
+Linux continuano a usare il trasporto Go e le variabili d'ambiente. Il proxy
+aziendale autenticato non e stato collaudato dal vivo; i test automatici
+usano solo server locali. Una policy Windows restrittiva puo impedire
+l'autenticazione verso proxy non classificati come intranet: non ridurla
+per aggirare il problema.
 
 Redirect fuori dalle origini configurate vengono rifiutati con un errore
 azionabile. Non disabilitare TLS o aggiungere domini di gateway al sorgente

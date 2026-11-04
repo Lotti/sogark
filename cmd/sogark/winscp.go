@@ -44,7 +44,7 @@ func newWinSCPCmd() *cobra.Command {
 			}
 
 			// Ensure valid key
-			valid, _, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
+			valid, _, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours, "PPK")
 			if !valid {
 				fmt.Println(msg.KeyExpired)
 				if err := doLogin(cfg); err != nil {

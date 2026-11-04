@@ -203,6 +203,13 @@ sogark keys clean --yes                 # senza conferma
 | `--force-login` | Forza login anche con chiave valida |
 | `-y, --yes` | Salta conferma (solo `clean`) |
 
+`--dir` vale sia per la verifica sia per il salvataggio delle chiavi, senza
+modificare la configurazione su disco. La cache viene riutilizzata solo se
+tutti i formati richiesti sono presenti, non vuoti e nel TTL.
+Su Windows le chiavi salvate hanno proprietario e ACL limitati all'utente
+corrente, senza ereditarietà; su macOS/Linux i file hanno permessi 0600.
+Il salvataggio prepara ogni file con permessi privati prima di sostituirlo.
+
 ---
 
 ### sogark ssh

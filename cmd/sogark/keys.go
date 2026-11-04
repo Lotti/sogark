@@ -13,6 +13,10 @@ import (
 )
 
 func newKeysCmd() *cobra.Command {
+	return newKeysCmdWithLogin(doLogin)
+}
+
+func newKeysCmdWithLogin(login func(*config.Config) error) *cobra.Command {
 	var (
 		dir        string
 		format     string
@@ -32,28 +36,31 @@ func newKeysCmd() *cobra.Command {
 				return err
 			}
 
-			keyDir := dir
-			if keyDir == "" {
-				keyDir, err = cfg.ResolveKeyDir()
-				if err != nil {
-					return err
-				}
+			if dir != "" {
+				cfg.KeyDir = dir
 			}
-
-			formats := cfg.KeyFormats
 			if format != "" {
-				formats = splitCSV(format)
-				cfg.KeyFormats = formats
+				cfg.KeyFormats = splitCSV(format)
 			}
-			_ = formats
+			cfg.KeyFormats, err = config.NormalizeKeyFormats(cfg.KeyFormats)
+			if err != nil {
+				return err
+			}
+			keyDir, err := cfg.ResolveKeyDir()
+			if err != nil {
+				return err
+			}
 
 			// Check key validity
-			valid, remaining, _ := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours)
+			valid, remaining, err := keys.IsValid(keyDir, cfg.SSHKeyName, cfg.KeyTTLHours, cfg.KeyFormats...)
+			if err != nil {
+				return err
+			}
 			if valid && !forceLogin {
 				fmt.Printf(msg.KeyValidFull,
 					int(remaining.Hours()), int(remaining.Minutes())%60)
 			} else {
-				if err := doLogin(cfg); err != nil {
+				if err := login(cfg); err != nil {
 					return err
 				}
 			}

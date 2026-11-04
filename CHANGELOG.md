@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Su Windows il client HTTP nativo usa la configurazione proxy automatica
+  WinHTTP e l'autenticazione integrata limitata dalla policy Windows
+  `MEDIUM`; HTTP_PROXY/HTTPS_PROXY espliciti restano prioritari.
+
+### Fixed
+
+- `keys --dir` applicato sia alla verifica della cache sia al download,
+  senza salvare gli override nella configurazione.
+- Verifica dei formati richiesti prima di riutilizzare le chiavi;
+  cache PEM/PPK utilizzabili anche senza OpenSSH, con rifiuto di file vuoti.
+- SSH/SCP controllano il file selezionato; WinSCP controlla la chiave PPK.
+- Chiavi Windows salvate con proprietario e DACL privata dell'utente
+  corrente, senza ereditarieta. Ogni file viene preparato con permessi
+  privati prima di sostituire quello esistente; su Unix resta il modo 0600.
+
+### Documentation
+
+- Documentata la compatibilita con lo script MFA v9 gia implementata
+  e la distinzione tra registrazione dell'app e login.
+- Chiarito l'isolamento di binari, home e configurazioni per le prove
+  parallele e il possibile impatto server-side del rinnovo chiavi.
+- OIDC resta sperimentale fino a un collaudo reale autorizzato.
+
 ## v0.3.0 - 2026-10-02
 
 ### Breaking change

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	msg "github.com/Lotti/sogark/internal/messages"
@@ -19,12 +20,28 @@ func SaveTimestamp(dir string) error {
 	return os.WriteFile(path, []byte(ts), 0600)
 }
 
-// IsValid checks if a key exists and is still within the TTL.
-func IsValid(dir, baseName string, ttlHours int) (bool, time.Duration, error) {
-	// Check that key file exists
-	keyPath := filepath.Join(dir, baseName)
-	if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-		return false, 0, nil
+// IsValid checks the requested key files and their TTL; the default is OpenSSH.
+func IsValid(dir, baseName string, ttlHours int, formats ...string) (bool, time.Duration, error) {
+	if len(formats) == 0 {
+		formats = []string{"OpenSSH"}
+	}
+	openssh, pem, ppk := FileNames(baseName)
+	names := map[string]string{"openssh": openssh, "pem": pem, "ppk": ppk}
+	for _, format := range formats {
+		name, ok := names[strings.ToLower(strings.TrimSpace(format))]
+		if !ok {
+			return false, 0, fmt.Errorf("unsupported key format %q", format)
+		}
+		info, err := os.Stat(filepath.Join(dir, name))
+		if os.IsNotExist(err) {
+			return false, 0, nil
+		}
+		if err != nil {
+			return false, 0, fmt.Errorf("inspect cached %s key: %w", format, err)
+		}
+		if !info.Mode().IsRegular() || info.Size() == 0 {
+			return false, 0, nil
+		}
 	}
 
 	// Check timestamp
