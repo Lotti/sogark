@@ -34,6 +34,9 @@ func TestCommandLine(t *testing.T) {
 	if cmd[4] != "-o" || cmd[5] != "IdentitiesOnly=yes" {
 		t.Errorf("cmd[4:6]: got %v, want [-o IdentitiesOnly=yes]", cmd[4:6])
 	}
+	if cmd[6] != "-o" || cmd[7] != "StrictHostKeyChecking=accept-new" {
+		t.Errorf("new host keys must be saved without accepting changed keys: %v", cmd)
+	}
 }
 
 func TestCommandLine_WithExtraArgs(t *testing.T) {
@@ -43,15 +46,18 @@ func TestCommandLine_WithExtraArgs(t *testing.T) {
 		Host:       "host",
 		ProxyHost:  "proxy",
 		KeyPath:    "/key",
-		ExtraArgs:  []string{"-v", "-o", "StrictHostKeyChecking=no"},
+		ExtraArgs:  []string{"-v", "-o", "StrictHostKeyChecking=yes"},
 	}
 
 	cmd := args.CommandLine()
-	if len(cmd) != 9 { // ssh, user@..., -i, /key, -o, IdentitiesOnly=yes, -v, -o, Strict...
+	if len(cmd) != 9 {
 		t.Errorf("expected 9 args, got %d: %v", len(cmd), cmd)
 	}
 	if cmd[6] != "-v" {
 		t.Errorf("extra arg[0]: got %q, want %q", cmd[6], "-v")
+	}
+	if cmd[8] != "StrictHostKeyChecking=yes" {
+		t.Errorf("explicit host-key policy must not be overridden: %v", cmd)
 	}
 }
 

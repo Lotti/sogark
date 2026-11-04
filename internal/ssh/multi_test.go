@@ -7,9 +7,25 @@ import (
 
 func TestBuildSSHCmd(t *testing.T) {
 	cmd := buildSSHCmd("mario.rossi", "root", "10.0.0.1", "psmp.example.com", "/keys/id_sogark")
-	expected := "ssh mario.rossi@root@10.0.0.1@psmp.example.com -i /keys/id_sogark -o IdentitiesOnly=yes"
+	expected := "ssh mario.rossi@root@10.0.0.1@psmp.example.com -i /keys/id_sogark -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
 	if cmd != expected {
 		t.Errorf("got %q, want %q", cmd, expected)
+	}
+}
+
+func TestBuildMobaSSHCmd(t *testing.T) {
+	got := buildMobaSSHCmd("user", "root", "app01", "psmp.example.com", `C:\User Files\id_sogark`, `C:\User Files\.ssh\known_hosts`)
+	want := `ssh -i 'C:/User Files/id_sogark' -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o 'UserKnownHostsFile="C:/User Files/.ssh/known_hosts" ~/.ssh/known_hosts' user@root@app01@psmp.example.com`
+	if got != want {
+		t.Fatalf("MobaXterm must save new keys and reject changed keys: got %q, want %q", got, want)
+	}
+}
+
+func TestBuildMobaSSHCmdQuotesApostrophes(t *testing.T) {
+	got := buildMobaSSHCmd("user", "root", "app01", "psmp.example.com", `C:\User's Files\id_sogark`, `C:\User's Files\.ssh\known_hosts`)
+	if !strings.Contains(got, `'C:/User'"'"'s Files/id_sogark'`) ||
+		!strings.Contains(got, `UserKnownHostsFile="C:/User'"'"'s Files/.ssh/known_hosts"`) {
+		t.Fatalf("MobaXterm paths must remain literal shell arguments: %q", got)
 	}
 }
 

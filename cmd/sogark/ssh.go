@@ -26,7 +26,7 @@ func newSSHCmd() *cobra.Command {
   sogark ssh admin@10.1.2.3
   sogark ssh myserver
   sogark ssh 10.1.2.3 -L 8080:localhost:80
-  sogark ssh 10.1.2.3 -v -o StrictHostKeyChecking=no
+  sogark ssh 10.1.2.3 -v -o StrictHostKeyChecking=yes
   sogark ssh 10.1.2.3 -D 1080
   sogark ssh --dry-run 10.1.2.3`,
 		DisableFlagParsing: true,

@@ -160,6 +160,36 @@ Il default `~/.sogark/keys` viene risolto automaticamente:
 
 ## Comandi
 
+### Verifica delle chiavi host SSH
+
+SSH, SCP, tmux e MobaXterm usano `StrictHostKeyChecking=accept-new`.
+Al primo collegamento la chiave pubblica del PSMP viene salvata
+automaticamente in `known_hosts`, senza richiesta `yes/no`.
+Una chiave gia nota che cambia continua a bloccare la connessione.
+Non viene usato `StrictHostKeyChecking=no` e non vengono cancellate
+automaticamente chiavi esistenti.
+
+La fiducia al primo uso non autentica da sola il fingerprint: verificarlo
+con l'amministratore attraverso un canale affidabile, soprattutto prima
+di collegarsi da una rete nuova. `known_hosts` contiene chiavi pubbliche,
+non solo le stringhe dei fingerprint.
+
+MobaXterm salva nel `~/.ssh/known_hosts` dell'utente del sistema operativo
+(su Windows `%USERPROFILE%\.ssh\known_hosts`), condiviso con OpenSSH.
+Consulta anche il proprio `~/.ssh/known_hosts` interno per non perdere
+la fiducia gia registrata. Il salvataggio non dipende dalla persistenza
+della home interna di MobaXterm.
+
+SSH e SCP conservano gli override espliciti, per esempio:
+
+```bash
+sogark ssh app01 -o StrictHostKeyChecking=yes
+sogark scp -o StrictHostKeyChecking=yes file.txt app01:/tmp/
+```
+
+Client OpenSSH precedenti alla versione 7.6 non supportano `accept-new`:
+aggiornarli invece di disabilitare la verifica.
+
 ### `sogark config`
 
 ```

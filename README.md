@@ -134,6 +134,15 @@ sogark winscp --tag production
 
 ## Comandi
 
+SSH, SCP e le sessioni MobaXterm/tmux accettano e salvano automaticamente
+le chiavi host nuove (`StrictHostKeyChecking=accept-new`), senza accettare
+quelle cambiate. E' fiducia al primo uso: verificare il fingerprint PSMP
+con l'amministratore tramite un canale affidabile prima di collegarsi.
+MobaXterm scrive nel `~/.ssh/known_hosts` dell'utente Windows, condiviso
+con OpenSSH, e continua a consultare il proprio file di trust.
+Per richiedere solo chiavi gia note: `sogark ssh <host> -o StrictHostKeyChecking=yes`.
+Non vengono modificati file di trust fino all'avvio di una connessione.
+
 ### sogark config
 
 ```

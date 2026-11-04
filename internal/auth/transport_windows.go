@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,6 +68,9 @@ func hasEnvironmentProxy(u *url.URL) bool {
 type winHTTPRoundTripper struct{}
 
 func (t *winHTTPRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if req.Body != nil {
+		defer req.Body.Close()
+	}
 	if err := req.Context().Err(); err != nil {
 		return nil, err
 	}
@@ -78,6 +82,8 @@ func (t *winHTTPRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	if err != nil {
 		return nil, err
 	}
+	// WinHTTP can retain the payload until WinHttpReceiveResponse completes.
+	defer runtime.KeepAlive(body)
 	session, err := openWinHTTPSession()
 	if err != nil {
 		return nil, err

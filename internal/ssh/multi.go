@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -135,7 +136,7 @@ func runMultiTmux(args *MultiArgs, username, proxyHost, keyPath string) error {
 
 func buildSSHCmd(username, targetUser, host, proxyHost, keyPath string) string {
 	user := fmt.Sprintf("%s@%s@%s@%s", username, targetUser, host, proxyHost)
-	return fmt.Sprintf("ssh %s -i %s -o IdentitiesOnly=yes", user, keyPath)
+	return fmt.Sprintf("ssh %s -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new", user, keyPath)
 }
 
 // buildSogarkSSHArgs returns the sogark ssh command args for a host.
@@ -399,6 +400,15 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 	if mobaPath == "" {
 		return fmt.Errorf(msg.SSHMobaNotFound)
 	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve known_hosts directory: %w", err)
+	}
+	sshDir := filepath.Join(home, ".ssh")
+	if err := os.MkdirAll(sshDir, 0700); err != nil {
+		return fmt.Errorf("prepare known_hosts directory: %w", err)
+	}
+	knownHostsPath := filepath.Join(sshDir, "known_hosts")
 
 	if maxSessions <= 0 {
 		maxSessions = 20
@@ -422,11 +432,7 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 
 	fmt.Printf(msg.SSHMobaOpening, len(hosts))
 	for i, h := range hosts {
-		// MobaXterm's embedded SSH interprets backslashes as escape chars,
-		// so convert Windows paths to forward slashes
-		mobaKeyPath := strings.ReplaceAll(keyPath, "\\", "/")
-		sshCmd := fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes %s@%s@%s@%s",
-			mobaKeyPath, username, h.TargetUser, h.Address, proxyHost)
+		sshCmd := buildMobaSSHCmd(username, h.TargetUser, h.Address, proxyHost, keyPath, knownHostsPath)
 		fmt.Printf("    %s (%s@%s)\n", h.Name, h.TargetUser, h.Address)
 
 		cmd := exec.Command(mobaPath, "-newtab", sshCmd)
@@ -441,6 +447,20 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 
 	fmt.Println(msg.SSHMobaMultiExec)
 	return nil
+}
+
+func buildMobaSSHCmd(username, targetUser, host, proxyHost, keyPath, knownHostsPath string) string {
+	// MobaXterm's embedded shell interprets backslashes as escape characters.
+	mobaKeyPath := strings.ReplaceAll(keyPath, "\\", "/")
+	mobaKnownHostsPath := strings.ReplaceAll(knownHostsPath, "\\", "/")
+	// Keep the embedded client's existing trust file as a secondary source.
+	knownHostsOption := `UserKnownHostsFile="` + strings.ReplaceAll(mobaKnownHostsPath, `"`, `\"`) + `" ~/.ssh/known_hosts`
+	return fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o %s %s@%s@%s@%s",
+		quoteMobaArgument(mobaKeyPath), quoteMobaArgument(knownHostsOption), username, targetUser, host, proxyHost)
+}
+
+func quoteMobaArgument(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
 }
 
 // isMobaXtermRunning checks if a MobaXterm process is currently running.

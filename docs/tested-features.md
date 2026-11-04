@@ -2,6 +2,16 @@
 
 Elenco delle funzionalità verificate in sessioni di test manuali e confermate come funzionanti.
 
+## Preparazione v0.3.1 - 2026-11-04
+
+Integrati gli aggiornamenti remoti del comando `password` con proxy Windows
+e correzioni delle chiavi MFA. SSH, SCP, tmux e MobaXterm usano ora
+`accept-new`; i test verificano i comandi generati, gli override espliciti
+e i percorsi MobaXterm del file `known_hosts` condiviso.
+La verifica offline con OpenSSH Windows conferma il parsing di `accept-new`
+e dei percorsi con spazi. Non sono state aperte connessioni PSMP ne
+modificati i file `known_hosts` operativi per questi controlli.
+
 ## Candidata locale MFA v9 - 2026-11-03
 
 Il confronto con lo script v9 non ha richiesto cambiamenti ai protocolli
@@ -136,4 +146,4 @@ confermati dal vivo.
 
 ---
 
-*Ultimo aggiornamento: 2026-11-03*
+*Ultimo aggiornamento: 2026-11-04*

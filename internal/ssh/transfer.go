@@ -22,6 +22,7 @@ type ScpArgs struct {
 // Remote paths matching [user@]host:path are rewritten to PSMP format.
 func (a *ScpArgs) CommandLine() []string {
 	args := []string{"scp", "-i", a.KeyPath, "-o", "IdentitiesOnly=yes"}
+	args = append(args, defaultHostKeyArgs(a.ScpArgs)...)
 
 	// OpenSSH >= 9.0 defaults to SFTP protocol; CyberArk PSMP doesn't
 	// support it. Use -O to force legacy SCP protocol.

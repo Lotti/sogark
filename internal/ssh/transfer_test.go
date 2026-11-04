@@ -52,7 +52,7 @@ func TestScpArgs_CommandLine(t *testing.T) {
 	got := args.CommandLine()
 
 	// Base expected args (without -O which depends on local OpenSSH version)
-	wantPrefix := []string{"scp", "-i", "/home/mario/.sogark/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantPrefix := []string{"scp", "-i", "/home/mario/.sogark/keys/id_sogark", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=accept-new"}
 	wantSuffix := []string{"file.txt", "mario.rossi@root@10.1.2.3@psmp.example.com:/tmp/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
@@ -68,7 +68,7 @@ func TestScpArgs_CommandLine_UserOverride(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=accept-new"}
 	wantSuffix := []string{"-r", "./mydir", "mario.rossi@admin@10.1.2.3@psmp.example.com:/opt/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
@@ -84,7 +84,7 @@ func TestScpArgs_CommandLine_Download(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=accept-new"}
 	wantSuffix := []string{"mario.rossi@root@10.1.2.3@psmp.example.com:/etc/hosts", "./local/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
@@ -100,10 +100,27 @@ func TestScpArgs_CommandLine_WithFlags(t *testing.T) {
 	}
 
 	got := args.CommandLine()
-	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+	wantPrefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes", "-o", "StrictHostKeyChecking=accept-new"}
 	wantSuffix := []string{"-C", "-v", "-P", "2222", "file.txt", "mario.rossi@root@host@psmp.example.com:/tmp/"}
 
 	assertCommandLine(t, got, wantPrefix, wantSuffix)
+}
+
+func TestScpArgs_ExplicitHostKeyPolicy(t *testing.T) {
+	for _, flags := range [][]string{
+		{"-o", "StrictHostKeyChecking=yes"},
+		{"-oStrictHostKeyChecking=yes"},
+		{"-o", "StrictHostKeyChecking yes"},
+	} {
+		args := &ScpArgs{
+			Username: "user", TargetUser: "root", ProxyHost: "psmp.example.com", KeyPath: "/keys/id_sogark",
+			ScpArgs: append(append([]string(nil), flags...), "file.txt", "app01:/tmp/"),
+		}
+		got := args.CommandLine()
+		prefix := []string{"scp", "-i", "/keys/id_sogark", "-o", "IdentitiesOnly=yes"}
+		suffix := append(append([]string(nil), flags...), "file.txt", "user@root@app01@psmp.example.com:/tmp/")
+		assertCommandLine(t, got, prefix, suffix)
+	}
 }
 
 // assertCommandLine checks that got starts with wantPrefix, ends with wantSuffix,

@@ -1,12 +1,26 @@
 # Changelog
 
-## Unreleased
+## v0.3.1 - 2026-11-04
+
+### Added
+
+- Comando `password <machine>`: autenticazione Identity/PVWA, ricerca
+  dell'account per macchina e utente target e copia della password negli
+  appunti di sistema, senza stamparla nel terminale.
+- Flag `password --user`, `--reason` e `--ticket` per selezionare l'utenza
+  target e fornire i dati richiesti dalla policy di recupero.
 
 ### Changed
 
 - Su Windows il client HTTP nativo usa la configurazione proxy automatica
   WinHTTP e l'autenticazione integrata limitata dalla policy Windows
   `MEDIUM`; HTTP_PROXY/HTTPS_PROXY espliciti restano prioritari.
+- SSH, SCP, tmux e MobaXterm usano `StrictHostKeyChecking=accept-new`:
+  aggiungono automaticamente le nuove chiavi host a `known_hosts`,
+  ma rifiutano quelle cambiate. Gli override espliciti SSH/SCP restano validi.
+- MobaXterm salva le nuove chiavi nel `~/.ssh/known_hosts` dell'utente
+  Windows, condiviso con OpenSSH, e consulta anche il proprio file esistente.
+  I percorsi con spazi vengono quotati.
 
 ### Fixed
 

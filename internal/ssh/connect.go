@@ -23,8 +23,25 @@ type ConnectArgs struct {
 func (a *ConnectArgs) CommandLine() []string {
 	user := fmt.Sprintf("%s@%s@%s@%s", a.Username, a.TargetUser, a.Host, a.ProxyHost)
 	args := []string{"ssh", user, "-i", a.KeyPath, "-o", "IdentitiesOnly=yes"}
+	args = append(args, defaultHostKeyArgs(a.ExtraArgs)...)
 	args = append(args, a.ExtraArgs...)
 	return args
+}
+
+func defaultHostKeyArgs(extraArgs []string) []string {
+	for i, arg := range extraArgs {
+		option := ""
+		if arg == "-o" && i+1 < len(extraArgs) {
+			option = extraArgs[i+1]
+		} else if strings.HasPrefix(arg, "-o") {
+			option = strings.TrimPrefix(arg, "-o")
+		}
+		fields := strings.Fields(strings.Replace(option, "=", " ", 1))
+		if len(fields) > 0 && strings.EqualFold(fields[0], "StrictHostKeyChecking") {
+			return nil
+		}
+	}
+	return []string{"-o", "StrictHostKeyChecking=accept-new"}
 }
 
 // CommandString returns the SSH command as a printable string.

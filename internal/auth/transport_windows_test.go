@@ -15,6 +15,16 @@ import (
 
 type testRoundTripper func(*http.Request) (*http.Response, error)
 
+type trackedRequestBody struct {
+	io.Reader
+	closed bool
+}
+
+func (b *trackedRequestBody) Close() error {
+	b.closed = true
+	return nil
+}
+
 func (f testRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
 }
@@ -51,11 +61,16 @@ func TestWindowsProxyTransportRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	requestBody := &trackedRequestBody{Reader: req.Body}
+	req.Body = requestBody
 	resp, err := newNativeTransport().RoundTrip(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
+	if !requestBody.closed {
+		t.Fatal("WinHTTP transport did not close the request body")
+	}
 	if resp.StatusCode != http.StatusCreated || len(resp.Header.Values("Set-Cookie")) != 2 {
 		t.Fatalf("unexpected response metadata: status=%d headers=%v", resp.StatusCode, resp.Header)
 	}
