@@ -83,10 +83,11 @@ func TestWindowsProxyTransportRoundTrip(t *testing.T) {
 func TestWindowsProxyTransportHonorsEnvironmentProxyForScheme(t *testing.T) {
 	t.Setenv("HTTP_PROXY", "http://127.0.0.1:3128")
 	t.Setenv("HTTPS_PROXY", "")
-	if !hasEnvironmentProxy(&url.URL{Scheme: "http"}) {
+	transport := newNativeTransport().(*windowsProxyTransport)
+	if !transport.hasEnvironmentProxy(&url.URL{Scheme: "http"}) {
 		t.Fatal("HTTP_PROXY should override the Windows system proxy for HTTP")
 	}
-	if hasEnvironmentProxy(&url.URL{Scheme: "https"}) {
+	if transport.hasEnvironmentProxy(&url.URL{Scheme: "https"}) {
 		t.Fatal("HTTP_PROXY must not override the Windows system proxy for HTTPS")
 	}
 }
@@ -96,7 +97,9 @@ func TestWindowsProxyTransportDispatchesPerScheme(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "")
 	envErr := errors.New("environment transport")
 	systemErr := errors.New("system transport")
+	_, proxyConfig := newEnvironmentTransport()
 	transport := &windowsProxyTransport{
+		proxyConfig: proxyConfig,
 		env: testRoundTripper(func(*http.Request) (*http.Response, error) {
 			return nil, envErr
 		}),

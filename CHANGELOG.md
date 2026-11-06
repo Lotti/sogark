@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.4 - 2026-11-06
+
+### Fixed
+
+- Configurazione proxy d'ambiente catturata per ogni nuovo client
+  autenticativo: supporto esplicito di HTTP_PROXY/HTTPS_PROXY e varianti
+  minuscole, con NO_PROXY/no_proxy. Su Windows gli override precedono
+  il proxy di sistema; tutte le fasi Identity/PVWA/chiavi usano lo stesso
+  trasporto, indipendentemente dal nome del profilo.
+
 ## v0.3.3 - 2026-11-04
 
 ### Fixed

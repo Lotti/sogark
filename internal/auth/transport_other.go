@@ -5,5 +5,6 @@ package auth
 import "net/http"
 
 func newNativeTransport() http.RoundTripper {
-	return http.DefaultTransport
+	transport, _ := newEnvironmentTransport()
+	return transport
 }

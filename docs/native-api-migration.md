@@ -168,13 +168,34 @@ o successivo.
 
 Su Windows, `HTTP_PROXY` e `HTTPS_PROXY` espliciti mantengono precedenza
 sulla configurazione WinHTTP per il rispettivo schema; quando tali variabili
-sono usate, il trasporto Go applica `NO_PROXY`. In assenza di proxy espliciti,
+sono usate, il trasporto Go applica `NO_PROXY`. Sono riconosciute anche
+`http_proxy`, `https_proxy` e `no_proxy`; su Windows i nomi delle variabili
+non distinguono maiuscole e minuscole. Sui sistemi che le distinguono,
+i valori maiuscoli non vuoti hanno precedenza sui corrispondenti minuscoli.
+In assenza di proxy espliciti,
 WinHTTP applica la propria configurazione e le relative eccezioni. macOS e
 Linux continuano a usare il trasporto Go e le variabili d'ambiente. Il proxy
 aziendale autenticato non e stato collaudato dal vivo; i test automatici
 usano solo server locali. Una policy Windows restrittiva puo impedire
 l'autenticazione verso proxy non classificati come intranet: non ridurla
 per aggirare il problema.
+
+Il proxy si applica all'intero flusso: StartAuthentication, QR/push,
+logon PVWA SAML/OIDC e download chiavi, non soltanto al download.
+Il nome del profilo non cambia il trasporto: se un servizio autenticativo
+richiede il proxy, questo deve essere disponibile gia prima di `login`.
+Ogni nuovo client cattura le variabili proxy correnti: non riutilizza la
+configurazione d'ambiente memorizzata dalla prima richiesta HTTP del processo.
+Le sessioni gia aperte mantengono la propria configurazione proxy.
+Su Linux/macOS impostare le variabili nel processo che avvia sogark;
+le impostazioni proxy grafiche del sistema non vengono lette automaticamente.
+Per destinazioni HTTPS usare `HTTPS_PROXY` o `https_proxy`: `HTTP_PROXY`
+da solo non configura il proxy per HTTPS.
+
+Se il login continua a tentare una connessione diretta, verificare che
+`NO_PROXY`/`no_proxy` non escludano gli endpoint Identity e PVWA.
+Con WinHTTP verificare invece le eccezioni della configurazione Windows.
+Il proxy di rete HTTP e distinto da `proxy_host`, che identifica il PSMP SSH.
 
 Redirect fuori dalle origini configurate vengono rifiutati con un errore
 azionabile. Non disabilitare TLS o aggiungere domini di gateway al sorgente

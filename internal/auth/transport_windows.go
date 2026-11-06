@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"syscall"
 	"unsafe"
 
+	"golang.org/x/net/http/httpproxy"
 	"golang.org/x/sys/windows"
 )
 
@@ -38,31 +38,33 @@ const (
 var winHTTP = windows.NewLazySystemDLL("winhttp.dll")
 
 func newNativeTransport() http.RoundTripper {
+	env, proxyConfig := newEnvironmentTransport()
 	return &windowsProxyTransport{
-		system: &winHTTPRoundTripper{},
-		env:    http.DefaultTransport,
+		system:      &winHTTPRoundTripper{},
+		env:         env,
+		proxyConfig: proxyConfig,
 	}
 }
 
 type windowsProxyTransport struct {
-	system http.RoundTripper
-	env    http.RoundTripper
+	system      http.RoundTripper
+	env         http.RoundTripper
+	proxyConfig *httpproxy.Config
 }
 
 func (t *windowsProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if hasEnvironmentProxy(req.URL) {
+	if t.hasEnvironmentProxy(req.URL) {
 		return t.env.RoundTrip(req)
 	}
 	return t.system.RoundTrip(req)
 }
 
-func hasEnvironmentProxy(u *url.URL) bool {
-	name := "HTTP_PROXY"
+func (t *windowsProxyTransport) hasEnvironmentProxy(u *url.URL) bool {
+	value := t.proxyConfig.HTTPProxy
 	if strings.EqualFold(u.Scheme, "https") {
-		name = "HTTPS_PROXY"
+		value = t.proxyConfig.HTTPSProxy
 	}
-	value, ok := os.LookupEnv(name)
-	return ok && strings.TrimSpace(value) != ""
+	return value != ""
 }
 
 type winHTTPRoundTripper struct{}
