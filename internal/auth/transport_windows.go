@@ -39,6 +39,12 @@ var winHTTP = windows.NewLazySystemDLL("winhttp.dll")
 
 func newNativeTransport() http.RoundTripper {
 	env, proxyConfig := newEnvironmentTransport()
+	env.OnProxyConnectResponse = func(ctx context.Context, proxy *url.URL, req *http.Request, resp *http.Response) error {
+		if resp.StatusCode == http.StatusProxyAuthRequired {
+			return errProxyAuthenticationRequired
+		}
+		return nil
+	}
 	return &windowsProxyTransport{
 		system:      &winHTTPRoundTripper{},
 		env:         env,
@@ -50,14 +56,51 @@ type windowsProxyTransport struct {
 	system      http.RoundTripper
 	env         http.RoundTripper
 	proxyConfig *httpproxy.Config
+	namedProxy  func(*url.URL) http.RoundTripper
 }
 
 func (t *windowsProxyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	if t.hasEnvironmentProxy(req.URL) {
-		return t.env.RoundTrip(req)
+		proxy, err := t.proxyConfig.ProxyFunc()(req.URL)
+		if err != nil {
+			return nil, err
+		}
+		if proxy == nil || proxy.Scheme != "http" {
+			return t.env.RoundTrip(req)
+		}
+		nativeProxy := *proxy
+		nativeProxy.User = nil
+		var native http.RoundTripper = &winHTTPRoundTripper{proxyURL: &nativeProxy}
+		if t.namedProxy != nil {
+			native = t.namedProxy(&nativeProxy)
+		}
+		if proxy.User == nil {
+			return native.RoundTrip(req)
+		}
+		// Honor supplied credentials first. A proxy challenge can require
+		// integrated Windows authentication instead of Basic authentication.
+		resp, err := t.env.RoundTrip(req)
+		challenged := errors.Is(err, errProxyAuthenticationRequired) ||
+			(resp != nil && resp.StatusCode == http.StatusProxyAuthRequired)
+		if !challenged || (req.Body != nil && req.Body != http.NoBody && req.GetBody == nil) {
+			return resp, err
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		retry := req.Clone(req.Context())
+		if req.GetBody != nil {
+			retry.Body, err = req.GetBody()
+			if err != nil {
+				return nil, err
+			}
+		}
+		return native.RoundTrip(retry)
 	}
 	return t.system.RoundTrip(req)
 }
+
+var errProxyAuthenticationRequired = errors.New("proxy requires authentication")
 
 func (t *windowsProxyTransport) hasEnvironmentProxy(u *url.URL) bool {
 	value := t.proxyConfig.HTTPProxy
@@ -67,7 +110,9 @@ func (t *windowsProxyTransport) hasEnvironmentProxy(u *url.URL) bool {
 	return value != ""
 }
 
-type winHTTPRoundTripper struct{}
+type winHTTPRoundTripper struct {
+	proxyURL *url.URL
+}
 
 func (t *winHTTPRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Body != nil {
@@ -86,7 +131,7 @@ func (t *winHTTPRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	}
 	// WinHTTP can retain the payload until WinHttpReceiveResponse completes.
 	defer runtime.KeepAlive(body)
-	session, err := openWinHTTPSession()
+	session, err := openWinHTTPSessionWithProxy(t.proxyURL)
 	if err != nil {
 		return nil, err
 	}
@@ -222,14 +267,28 @@ func requestTarget(u *url.URL) string {
 }
 
 func openWinHTTPSession() (uintptr, error) {
+	return openWinHTTPSessionWithProxy(nil)
+}
+
+func openWinHTTPSessionWithProxy(proxyURL *url.URL) (uintptr, error) {
 	if err := winHTTP.Load(); err != nil {
 		return 0, fmt.Errorf("load WinHTTP: %w", err)
 	}
 	agent, _ := syscall.UTF16PtrFromString("sogark")
+	accessType := uintptr(winHTTPAccessTypeAutomaticProxy)
+	var proxyName *uint16
+	if proxyURL != nil {
+		accessType = 3 // WINHTTP_ACCESS_TYPE_NAMED_PROXY
+		var err error
+		proxyName, err = syscall.UTF16PtrFromString(proxyURL.Host)
+		if err != nil {
+			return 0, err
+		}
+	}
 	session, _, callErr := winHTTP.NewProc("WinHttpOpen").Call(
 		uintptr(unsafe.Pointer(agent)),
-		winHTTPAccessTypeAutomaticProxy,
-		0,
+		accessType,
+		uintptr(unsafe.Pointer(proxyName)),
 		0,
 		0,
 	)

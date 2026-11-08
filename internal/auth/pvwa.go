@@ -156,6 +156,17 @@ func (c *NativeClient) establishOIDC(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	cookieURL := *c.pvwaURL
+	cookieURL.Path = strings.TrimRight(cookieURL.Path, "/") + "/"
+	for _, cookie := range c.httpClient.Jar.Cookies(&cookieURL) {
+		if cookie.Name == "OidcConcurrentSession" {
+			cookie.Value = "True"
+			cookie.Path = cookieURL.Path
+			cookie.Secure = c.pvwaURL.Scheme == "https"
+			c.httpClient.Jar.SetCookies(&cookieURL, []*http.Cookie{cookie})
+			break
+		}
+	}
 	data, _, err := c.request(ctx, "PVWA OIDC form", http.MethodGet, location.String(), "", nil, nil, true)
 	if err != nil {
 		return err

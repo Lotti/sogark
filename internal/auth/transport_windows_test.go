@@ -20,6 +20,66 @@ type trackedRequestBody struct {
 	closed bool
 }
 
+func TestWindowsProxyIntegratedFallback(t *testing.T) {
+	for _, scheme := range []string{"http", "https"} {
+		t.Run(scheme, func(t *testing.T) {
+			clearProxyEnvironment(t)
+			t.Setenv("HTTP_PROXY", "http://fixture:password@proxy.example.test:8080")
+			t.Setenv("HTTPS_PROXY", "http://fixture:password@proxy.example.test:8080")
+			_, settings := newEnvironmentTransport()
+			var nativeCalls int
+			transport := &windowsProxyTransport{
+				proxyConfig: settings,
+				env: testRoundTripper(func(req *http.Request) (*http.Response, error) {
+					if req.Body != nil {
+						req.Body.Close()
+					}
+					if scheme == "https" {
+						return nil, errProxyAuthenticationRequired
+					}
+					return &http.Response{StatusCode: 407, Body: io.NopCloser(strings.NewReader(""))}, nil
+				}),
+				namedProxy: func(proxy *url.URL) http.RoundTripper {
+					if proxy.User != nil || proxy.Host != "proxy.example.test:8080" {
+						t.Fatalf("native retry must use the same proxy without supplied credentials")
+					}
+					return testRoundTripper(func(req *http.Request) (*http.Response, error) {
+						nativeCalls++
+						body, _ := io.ReadAll(req.Body)
+						req.Body.Close()
+						if string(body) != `{"fixture":true}` {
+							t.Errorf("retry body lost: %q", body)
+						}
+						return &http.Response{StatusCode: 200, Body: http.NoBody}, nil
+					})
+				},
+			}
+			req, _ := http.NewRequest(http.MethodPost, scheme+"://identity.example.test/start", strings.NewReader(`{"fixture":true}`))
+			resp, err := transport.RoundTrip(req)
+			if err != nil || resp.StatusCode != 200 || nativeCalls != 1 {
+				t.Fatalf("integrated fallback failed: response=%v error=%v calls=%d", resp, err, nativeCalls)
+			}
+		})
+	}
+}
+
+func TestWindowsProxyBypassDoesNotUseSystemProxy(t *testing.T) {
+	clearProxyEnvironment(t)
+	t.Setenv("HTTPS_PROXY", "http://proxy.example.test:8080")
+	t.Setenv("NO_PROXY", "identity.example.test")
+	_, settings := newEnvironmentTransport()
+	direct := errors.New("direct route")
+	transport := &windowsProxyTransport{
+		proxyConfig: settings,
+		env:         testRoundTripper(func(*http.Request) (*http.Response, error) { return nil, direct }),
+		system:      testRoundTripper(func(*http.Request) (*http.Response, error) { t.Fatal("NO_PROXY ignored"); return nil, nil }),
+	}
+	req, _ := http.NewRequest(http.MethodGet, "https://identity.example.test/start", nil)
+	if _, err := transport.RoundTrip(req); !errors.Is(err, direct) {
+		t.Fatalf("bypass failed: %v", err)
+	}
+}
+
 func (b *trackedRequestBody) Close() error {
 	b.closed = true
 	return nil
@@ -100,6 +160,9 @@ func TestWindowsProxyTransportDispatchesPerScheme(t *testing.T) {
 	_, proxyConfig := newEnvironmentTransport()
 	transport := &windowsProxyTransport{
 		proxyConfig: proxyConfig,
+		namedProxy: func(*url.URL) http.RoundTripper {
+			return testRoundTripper(func(*http.Request) (*http.Response, error) { return nil, envErr })
+		},
 		env: testRoundTripper(func(*http.Request) (*http.Response, error) {
 			return nil, envErr
 		}),

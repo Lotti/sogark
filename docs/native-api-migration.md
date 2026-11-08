@@ -158,6 +158,15 @@ l'aggiornamento del timestamp di successo.
 
 ## Rete e protezione dati
 
+### Allineamento allo script v10
+
+Il v10 conserva StartAuthentication e QR/push del v9. La differenza OIDC
+e l'impostazione a `True` del cookie PVWA `OidcConcurrentSession`, se
+presente, dopo Authorize e prima del callback Token. Sogark applica lo
+stesso comportamento; non crea il cookie quando il server non lo fornisce.
+Questa modifica non cambia i meccanismi restituiti da Identity all'inizio
+del login.
+
 Su Windows il client usa WinHTTP con configurazione proxy automatica,
 includendo le impostazioni di sistema e quelle dell'utente corrente.
 L'autenticazione integrata NTLM/Negotiate resta soggetta alla policy
@@ -167,8 +176,13 @@ credenziali a destinazioni arbitrarie. Questa modalita richiede Windows 8.1
 o successivo.
 
 Su Windows, `HTTP_PROXY` e `HTTPS_PROXY` espliciti mantengono precedenza
-sulla configurazione WinHTTP per il rispettivo schema; quando tali variabili
-sono usate, il trasporto Go applica `NO_PROXY`. Sono riconosciute anche
+sulla configurazione WinHTTP per il rispettivo schema; `NO_PROXY` continua
+a essere applicato. I proxy HTTP senza credenziali esplicite usano WinHTTP
+anche se definiti nelle variabili, cosi da consentire l'autenticazione
+integrata Windows. Se sono specificate credenziali, vengono provate prima
+dal trasporto Go; solo un rifiuto proxy 407 abilita un secondo tentativo
+WinHTTP con l'identita Windows e la stessa destinazione proxy. Non vengono
+ritentati errori del server o errori di rete generici. Sono riconosciute anche
 `http_proxy`, `https_proxy` e `no_proxy`; su Windows i nomi delle variabili
 non distinguono maiuscole e minuscole. Sui sistemi che le distinguono,
 i valori maiuscoli non vuoti hanno precedenza sui corrispondenti minuscoli.

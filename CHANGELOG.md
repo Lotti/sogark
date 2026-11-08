@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.5 - 2026-11-08
+
+### Fixed
+
+- Allineamento allo script MFA v10: dopo OIDC Authorize il cookie
+  OidcConcurrentSession esistente viene impostato a True prima del callback
+  Token, per consentire sessioni concorrenti. Il flusso QR/push resta invariato.
+- Proxy HTTP espliciti su Windows utilizzabili anche con autenticazione
+  integrata WinHTTP. Le credenziali proxy esplicite restano prioritarie;
+  solo una risposta proxy 407 consente il fallback all'identita Windows
+  sullo stesso proxy, conservando NO_PROXY e la policy MEDIUM.
+
 ## v0.3.4 - 2026-11-06
 
 ### Fixed

@@ -153,12 +153,14 @@ func TestNativeQRPushPVWAAndKeys(t *testing.T) {
 						t.Error("unexpected OIDC authorize")
 					}
 					requireCookie(t, r, "PreferredCulture", "en")
+					http.SetCookie(w, &http.Cookie{Name: "OidcConcurrentSession", Value: "False", Path: "/vault/"})
 					http.Redirect(w, r, server.URL+"/identity/oidc-form?state=synthetic-private-state", http.StatusFound)
 				case "/identity/oidc-form":
 					requireCookie(t, r, "identity-session", "idp")
 					oidcForms.Add(1)
 					fmt.Fprint(w, `<input value="code&#x2b;value" name="code"><input name='state' value='state&amp;value'>`)
 				case "/vault/token":
+					requireCookie(t, r, "OidcConcurrentSession", "True")
 					_ = r.ParseForm()
 					if r.Method != http.MethodPost || r.PostForm.Get("code") != "code+value" || r.PostForm.Get("state") != "state&value" {
 						t.Error("OIDC callback form differs from reference")
