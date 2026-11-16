@@ -15,7 +15,7 @@ func TestBuildSSHCmd(t *testing.T) {
 
 func TestBuildMobaSSHCmd(t *testing.T) {
 	got := buildMobaSSHCmd("user", "root", "app01", "psmp.example.com", `C:\User Files\id_sogark`, `C:\User Files\.ssh\known_hosts`)
-	want := `ssh -i 'C:/User Files/id_sogark' -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o 'UserKnownHostsFile="C:/User Files/.ssh/known_hosts" ~/.ssh/known_hosts' user@root@app01@psmp.example.com`
+	want := `ssh -i '/drives/c/User Files/id_sogark' -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o 'UserKnownHostsFile="/drives/c/User Files/.ssh/known_hosts"' user@root@app01@psmp.example.com`
 	if got != want {
 		t.Fatalf("MobaXterm must save new keys and reject changed keys: got %q, want %q", got, want)
 	}
@@ -23,9 +23,30 @@ func TestBuildMobaSSHCmd(t *testing.T) {
 
 func TestBuildMobaSSHCmdQuotesApostrophes(t *testing.T) {
 	got := buildMobaSSHCmd("user", "root", "app01", "psmp.example.com", `C:\User's Files\id_sogark`, `C:\User's Files\.ssh\known_hosts`)
-	if !strings.Contains(got, `'C:/User'"'"'s Files/id_sogark'`) ||
-		!strings.Contains(got, `UserKnownHostsFile="C:/User'"'"'s Files/.ssh/known_hosts"`) {
+	if !strings.Contains(got, `'/drives/c/User'"'"'s Files/id_sogark'`) ||
+		!strings.Contains(got, `UserKnownHostsFile="/drives/c/User'"'"'s Files/.ssh/known_hosts"`) {
 		t.Fatalf("MobaXterm paths must remain literal shell arguments: %q", got)
+	}
+}
+
+func TestBuildMobaSSHCmdKnownHostsPaths(t *testing.T) {
+	for _, test := range []struct {
+		path string
+		want string
+	}{
+		{`C:\Users\user\.ssh\known_hosts`, "/drives/c/Users/user/.ssh/known_hosts"},
+		{`D:/Profiles/user/.ssh/known_hosts`, "/drives/d/Profiles/user/.ssh/known_hosts"},
+		{"/home/user/.ssh/known_hosts", "/home/user/.ssh/known_hosts"},
+		{"/Users/user/.ssh/known_hosts", "/Users/user/.ssh/known_hosts"},
+		{`\\server\profiles\user\.ssh\known_hosts`, "//server/profiles/user/.ssh/known_hosts"},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			got := buildMobaSSHCmd("user", "root", "app01", "psmp.example.com", test.path, test.path)
+			if !strings.Contains(got, quoteMobaArgument("UserKnownHostsFile="+test.want)) ||
+				strings.Contains(got, "~/.ssh/known_hosts") {
+				t.Fatalf("expected one native Moba trust path %q, got %q", test.want, got)
+			}
+		})
 	}
 }
 

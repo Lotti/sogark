@@ -176,9 +176,12 @@ non solo le stringhe dei fingerprint.
 
 MobaXterm salva nel `~/.ssh/known_hosts` dell'utente del sistema operativo
 (su Windows `%USERPROFILE%\.ssh\known_hosts`), condiviso con OpenSSH.
-Consulta anche il proprio `~/.ssh/known_hosts` interno per non perdere
-la fiducia gia registrata. Il salvataggio non dipende dalla persistenza
-della home interna di MobaXterm.
+Il percorso Windows viene passato al client interno come
+`/drives/c/Users/.../.ssh/known_hosts` (con la lettera dell'unita corretta);
+su Unix viene mantenuto il percorso nativo. Non viene concatenato un
+secondo percorso: il salvataggio non dipende dalla persistenza della home
+interna di MobaXterm. Eventuali chiavi note soltanto alla home interna
+richiedono una nuova verifica al primo collegamento con il file condiviso.
 
 SSH e SCP conservano gli override espliciti, per esempio:
 

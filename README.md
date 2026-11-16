@@ -139,7 +139,9 @@ le chiavi host nuove (`StrictHostKeyChecking=accept-new`), senza accettare
 quelle cambiate. E' fiducia al primo uso: verificare il fingerprint PSMP
 con l'amministratore tramite un canale affidabile prima di collegarsi.
 MobaXterm scrive nel `~/.ssh/known_hosts` dell'utente Windows, condiviso
-con OpenSSH, e continua a consultare il proprio file di trust.
+con OpenSSH. Il percorso Windows viene convertito nel formato MobaXterm
+`/drives/c/...`; su Unix resta il percorso nativo. Viene passato un solo
+file di trust, senza concatenare il percorso della home interna di Moba.
 Per richiedere solo chiavi gia note: `sogark ssh <host> -o StrictHostKeyChecking=yes`.
 Non vengono modificati file di trust fino all'avvio di una connessione.
 

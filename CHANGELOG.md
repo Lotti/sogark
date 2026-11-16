@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.6 - 2026-11-16
+
+### Fixed
+
+- MobaXterm: percorso known_hosts Windows convertito in /drives/<unita>/...
+  e singolo file di trust, evitando la concatenazione interpretata come
+  un nome file non valido. Percorsi Unix mantenuti, spazi quotati e
+  rifiuto delle chiavi host cambiate invariato.
+
 ## v0.3.5 - 2026-11-08
 
 ### Fixed

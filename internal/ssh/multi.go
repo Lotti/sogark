@@ -451,12 +451,25 @@ func RunMoba(hosts []HostTarget, username, proxyHost, keyPath, mobaPath string, 
 
 func buildMobaSSHCmd(username, targetUser, host, proxyHost, keyPath, knownHostsPath string) string {
 	// MobaXterm's embedded shell interprets backslashes as escape characters.
-	mobaKeyPath := strings.ReplaceAll(keyPath, "\\", "/")
-	mobaKnownHostsPath := strings.ReplaceAll(knownHostsPath, "\\", "/")
-	// Keep the embedded client's existing trust file as a secondary source.
-	knownHostsOption := `UserKnownHostsFile="` + strings.ReplaceAll(mobaKnownHostsPath, `"`, `\"`) + `" ~/.ssh/known_hosts`
+	mobaKeyPath := mobaShellPath(keyPath)
+	mobaKnownHostsPath := mobaShellPath(knownHostsPath)
+	knownHostsOption := "UserKnownHostsFile=" + mobaKnownHostsPath
+	if strings.ContainsAny(mobaKnownHostsPath, " \t\"") {
+		knownHostsOption = `UserKnownHostsFile="` + strings.ReplaceAll(mobaKnownHostsPath, `"`, `\"`) + `"`
+	}
 	return fmt.Sprintf("ssh -i %s -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o %s %s@%s@%s@%s",
 		quoteMobaArgument(mobaKeyPath), quoteMobaArgument(knownHostsOption), username, targetUser, host, proxyHost)
+}
+
+func mobaShellPath(path string) string {
+	if strings.HasPrefix(path, `\\`) {
+		return strings.ReplaceAll(path, "\\", "/")
+	}
+	if len(path) >= 3 && path[1] == ':' && (path[2] == '/' || path[2] == '\\') &&
+		((path[0] >= 'A' && path[0] <= 'Z') || (path[0] >= 'a' && path[0] <= 'z')) {
+		return "/drives/" + strings.ToLower(path[:1]) + strings.ReplaceAll(path[2:], "\\", "/")
+	}
+	return path
 }
 
 func quoteMobaArgument(value string) string {
