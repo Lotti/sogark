@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/Lotti/sogark/internal/keys"
 )
 
 // ScpArgs holds the parameters for an SCP file transfer via PSMP.
@@ -43,6 +45,9 @@ func (a *ScpArgs) CommandString() string {
 
 // Run starts the scp command as a subprocess and waits for completion.
 func (a *ScpArgs) Run() error {
+	if err := keys.PrepareForOpenSSH(a.KeyPath); err != nil {
+		return err
+	}
 	args := a.CommandLine()
 
 	cmdName := args[0]
@@ -132,6 +137,9 @@ type BatchScpArgs struct {
 func RunBatchScp(args *BatchScpArgs) error {
 	if len(args.Hosts) == 0 {
 		return fmt.Errorf("nessun host specificato")
+	}
+	if err := keys.PrepareForOpenSSH(args.KeyPath); err != nil {
+		return err
 	}
 
 	parallel := args.Parallel

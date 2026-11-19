@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.7 - 2026-11-19
+
+### Fixed
+
+- SCP su Windows ripristina i permessi privati della chiave in cache prima
+  del trasferimento, senza sostituire la chiave o rinnovare la sessione MFA.
+
 ## v0.3.6 - 2026-11-16
 
 ### Fixed
